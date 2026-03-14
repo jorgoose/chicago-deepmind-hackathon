@@ -656,53 +656,102 @@ Or more aspirationally:
 
 **"Any AI agent can now build an iPhone app. No Mac required."**
 
+#### Actual Hackathon Demo Setup
+
+**Hardware:** Your Windows laptop (the "client") + teammate's MacBook (the "cloud sandbox"). Connected over local network or tunnel.
+
+```
+┌──────────────────────┐       API / MCP / WebSocket       ┌──────────────────────┐
+│  Windows Laptop      │  ──────────────────────────────→  │  Teammate's MacBook  │
+│  (Logan)             │                                   │                      │
+│                      │  ← streams build output,          │  - macOS + Xcode 16  │
+│  - Demo UI / CLI     │    test results, simulator        │  - iOS Simulator     │
+│  - Gemini agent      │    screenshots                    │  - MCP server        │
+│  - "I have no Mac"   │                                   │  - API layer (Flask/ │
+│                      │                                   │    FastAPI/Express)   │
+└──────────────────────┘                                   └──────────────────────┘
+```
+
+**Why this setup is perfect:** The Windows laptop *literally cannot run Xcode*. This isn't a contrived demo — it's the exact problem the product solves, proven live on stage.
+
+#### What to Build During the Hackathon (~20-24 hrs of work)
+
+**On the MacBook — the "sandbox server" (~8-10 hrs):**
+1. **API layer** (FastAPI or Express) — endpoints for:
+   - `POST /sandbox/exec` — run a shell command, stream stdout/stderr back via WebSocket
+   - `GET /sandbox/status` — sandbox health, Xcode version, disk space
+   - `POST /sandbox/files` — upload/download files
+   - `GET /sandbox/screenshot` — capture iOS Simulator screen and return image
+2. **MCP bridge** — expose Xcode 26.3's built-in MCP tools over the network (or use XcodeBuildMCP from Sentry) so a remote agent can call them
+3. **Tunnel** — Cloudflare Tunnel, ngrok, or Tailscale to make the MacBook reachable from anywhere (not just local network)
+
+**On the Windows laptop — the "client" (~8-10 hrs):**
+1. **Web dashboard** (Next.js or simple React app) showing:
+   - Sandbox status (connected/disconnected, macOS version, Xcode version)
+   - Live build log stream (WebSocket)
+   - Agent reasoning / activity feed
+   - iOS Simulator screenshot panel (updates as the app is built)
+2. **Gemini agent integration** — Gemini CLI or custom Gemini API agent that connects to the MacBook's MCP endpoint and can:
+   - Create Xcode projects
+   - Write Swift files
+   - Trigger builds
+   - Read build errors and fix them
+   - Run tests
+3. **CLI wrapper** (optional) — a `macbox` CLI that wraps the API calls for the terminal demo moments
+
+**Polish (~4 hrs):**
+- Test the exact demo prompt 5+ times
+- Record a backup video of the full demo in case of network failure
+- Pre-cache all Swift/Xcode dependencies on the MacBook
+- Pre-warm the Xcode project template so first build is fast
+
 #### Demo Script (5 minutes)
 
-**Setup:** Split screen. Left side: terminal / chat with AI agent. Right side: a dashboard showing the sandbox.
-
 **Beat 1: The Problem (30 seconds)**
-"Every AI coding agent — Claude Code, Codex, Gemini — can build Python apps, web apps, Rust apps in cloud sandboxes. But ask any of them to build an iOS app, and they hit a wall. You need macOS. You need Xcode. You need Apple hardware. Today, that means you need a $1,300 Mac sitting on a desk somewhere. We fix that."
+*[On Windows laptop, visible to audience]*
+"Every AI coding agent — Codex, Claude Code, Gemini — can build Python apps, web apps, Rust apps in cloud sandboxes. But ask any of them to build an iOS app, and they hit a wall. You need macOS. You need Xcode. You need a $1,300 Mac. I'm on Windows. I don't have one."
 
-**Beat 2: Create a Sandbox (30 seconds)**
+**Beat 2: Connect to a Cloud Mac (30 seconds)**
 ```bash
-$ macbox create --template xcode-16 --name "demo-app"
-✓ Sandbox ready: demo-app.macbox.dev
+$ macbox connect --sandbox demo-app
+✓ Connected to demo-app.macbox.dev
 ✓ macOS 15.2 + Xcode 16 + iOS 18 Simulator
-✓ MCP endpoint: https://demo-app.macbox.dev/mcp
+✓ MCP endpoint ready
 ```
-"One command. Cloud Mac with Xcode. Ready in seconds." (Pre-warmed snapshot — the 24hr minimum means we keep these warm.)
+*[Dashboard lights up — shows macOS sandbox status, Xcode version, available simulators]*
+"One command. I now have a Mac with Xcode in the cloud. Let's build an app."
 
 **Beat 3: AI Agent Builds an iOS App (2 minutes)**
-Connect Gemini CLI (or Claude Code) to the sandbox's MCP endpoint:
 ```bash
 $ gemini --mcp https://demo-app.macbox.dev/mcp
-> "Create a SwiftUI workout tracker app with a timer, exercise list, and history view. Build and test it."
+> "Create a SwiftUI workout tracker app with a timer, exercise list, and history view. Build it and run the tests."
 ```
-Show the agent:
-- Creating an Xcode project via MCP tools
-- Writing SwiftUI views
-- Building (show `xcodebuild` output streaming)
-- Hitting a build error → reading the error → fixing it → rebuilding successfully
-- Running tests on iOS Simulator
-- Generating a SwiftUI preview screenshot
+*[Dashboard shows live activity — agent reasoning on the left, build output streaming on the right]*
+- Agent creates Xcode project via MCP
+- Writes SwiftUI views
+- Triggers build → `xcodebuild` output streams to the dashboard
+- Build error → agent reads it → fixes the code → rebuilds → success
+- Runs tests on iOS Simulator → all green
 
 **Beat 4: The Result (1 minute)**
-- Show the built app running in iOS Simulator (streamed from the sandbox)
-- Show the test results (all passing)
-- Show the generated PR with clean diffs
-- "This agent has never touched a Mac. It didn't need to."
+*[Dashboard shows iOS Simulator screenshot of the working app]*
+- Show the built app running in Simulator (screenshot streamed from MacBook)
+- Show test results (all passing)
+- "This entire app was built by Gemini on a Mac I don't own, from a Windows laptop that can't run Xcode. The agent never saw a GUI — it worked entirely through our API and MCP."
 
 **Beat 5: Why This Matters (1 minute)**
-"28 million Apple developers. The AI agent revolution is leaving them behind because every sandbox is Linux-only. We're the missing infrastructure layer. Any agent, any iOS app, no Mac required."
+"28 million Apple developers. A $100 billion app economy. And every AI agent sandbox is Linux-only. We're the missing infrastructure layer. Any agent. Any iOS app. No Mac required."
 
 #### Demo Risks & Mitigations
 
 | Risk | Mitigation |
 |---|---|
-| VM boot is slow during live demo | Pre-warm the sandbox before demo. The 24hr persistence means it's already running. |
-| Agent writes bad code, build fails repeatedly | Pre-test the exact prompt. Have a backup recording. The "agent fixes a build error" is actually a good demo moment if it recovers. |
-| Network issues | Have a local fallback demo running on a physical Mac with the same API layer in front of it. |
-| Xcode compilation is slow | Use a simple app (single view). Pre-cache Swift package dependencies. Show the build streaming so the audience sees progress. |
+| Network between laptops fails | Use Tailscale (peer-to-peer, works without internet). Also have a backup recording ready. |
+| Agent writes bad code, build fails repeatedly | Pre-test the exact prompt 5+ times. The "agent fixes a build error" moment is actually compelling if it recovers — let it happen once, then succeed. |
+| MacBook overheats / slows down | Keep Xcode and Simulator pre-launched. Use a simple single-view app. Close all other apps on the MacBook. |
+| Xcode compilation is slow (audience gets bored) | Use a minimal app (1-2 views, no external dependencies). Pre-cache Swift module compilation. Show streaming build output so audience sees progress. |
+| Demo takes too long for hackathon time slot | Have a "fast path" version: pre-created project, agent just adds one feature + builds. Can compress Beat 3 to 60 seconds. |
+| Judges ask "is this really remote or just running locally?" | Show the Windows Task Manager — no Xcode process. Show the MacBook's Activity Monitor on a secondary view if needed. The whole point of using Windows is that this is provably remote. |
 
 ---
 
