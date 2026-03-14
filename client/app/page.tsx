@@ -31,7 +31,7 @@ export default function Home() {
         <div>
           <div className="flex items-center gap-3">
             <CiderIcon size={28} />
-            <span className="eyebrow">Brew iOS apps in the cloud</span>
+            <span className="eyebrow">Craft iOS apps in the cloud</span>
           </div>
           <h1 className="hero-title mt-6 max-w-3xl">Let agents build iOS apps from any machine.</h1>
           <p className="body-copy mt-6 max-w-xl text-lg">
