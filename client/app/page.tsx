@@ -1,6 +1,5 @@
 import Link from "next/link";
 import Image from "next/image";
-import PlaceholderImage from "@/components/PlaceholderImage";
 import SiteHeader from "@/components/SiteHeader";
 import CiderIcon from "@/components/CiderIcon";
 
@@ -42,8 +41,8 @@ export default function Home() {
           </div>
           <h1 className="hero-title mt-6 max-w-3xl">Build iOS apps from any machine.</h1>
           <p className="body-copy mt-6 max-w-xl text-lg">
-            Cider only needs three browser surfaces: a sharp landing page, a quiet auth
-            flow for the CLI, and a dashboard that shows what the sandbox is doing.
+            Spin up a macOS sandbox, build and run iOS apps in a remote simulator,
+            and ship without needing a Mac on your desk.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link href="/login" className="button-primary">
@@ -95,11 +94,20 @@ export default function Home() {
           </div>
         </div>
 
-        <PlaceholderImage
-          index="02"
-          title="Dashboard image"
-          copy="Replace this with a quieter dashboard screenshot, emulator shot, or auth completion screen."
-        />
+        <div className="surface-card divide-y divide-[var(--border)] overflow-hidden">
+          {[
+            { label: "Sandbox", value: "macOS · Xcode · iOS Simulator" },
+            { label: "Build output", value: "Live log stream from xcodebuild" },
+            { label: "Agent timeline", value: "Tool calls, file writes, commands" },
+            { label: "Simulator preview", value: "On-demand screenshot capture" },
+            { label: "Auth surface", value: "cider login · gemini auth · google login" },
+          ].map(({ label, value }) => (
+            <div key={label} className="flex items-center justify-between gap-6 px-6 py-4">
+              <span className="data-label">{label}</span>
+              <span className="body-copy text-right text-sm">{value}</span>
+            </div>
+          ))}
+        </div>
       </section>
 
       <section className="mt-20 grid gap-10 border-t border-[var(--border)] pt-10 md:grid-cols-3">

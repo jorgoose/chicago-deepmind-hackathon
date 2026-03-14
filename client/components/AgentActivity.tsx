@@ -41,7 +41,7 @@ export default function AgentActivity({ toolCalls }: Props) {
       <div ref={containerRef} className="max-h-[420px] space-y-3 overflow-y-auto pr-1">
         {toolCalls.length === 0 ? (
           <div className="rounded-[22px] border border-dashed border-[var(--border-strong)] px-5 py-10 text-center">
-            <p className="body-copy">Tool calls from the active sandbox session show up here.</p>
+            <p className="body-copy">No activity yet.</p>
           </div>
         ) : (
           toolCalls.map((tc) => (

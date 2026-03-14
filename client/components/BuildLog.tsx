@@ -33,7 +33,7 @@ export default function BuildLog({ lines }: Props) {
       >
         {lines.length === 0 ? (
           <div className="rounded-[18px] border border-dashed border-[var(--border-strong)] px-5 py-10 text-center">
-            <p className="body-copy">Build output from sandbox commands appears here.</p>
+            <p className="body-copy">No output yet.</p>
           </div>
         ) : (
           <pre className="whitespace-pre-wrap break-words text-[13px] text-[var(--text)]">

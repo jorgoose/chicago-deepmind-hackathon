@@ -127,6 +127,8 @@ type geminiPart struct {
 	Text             string             `json:"text,omitempty"`
 	FunctionCall     *geminiFC          `json:"functionCall,omitempty"`
 	FunctionResponse *geminiFR          `json:"functionResponse,omitempty"`
+	ThoughtSignature string             `json:"thoughtSignature,omitempty"`
+	Thought          bool               `json:"thought,omitempty"`
 }
 
 type geminiFC struct {

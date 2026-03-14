@@ -44,12 +44,7 @@ export default function LoginPage() {
           <div className="mt-10 space-y-6">
             {methods.map((method) => (
               <div key={method.label} className="border-t border-[var(--border)] pt-4">
-                <div className="flex items-center justify-between gap-4">
-                  <h2 className="text-2xl font-semibold leading-none">{method.label}</h2>
-                  <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--accent)]">
-                    Pending
-                  </span>
-                </div>
+                <h2 className="text-2xl font-semibold leading-none">{method.label}</h2>
                 <p className="body-copy mt-3 max-w-lg">{method.detail}</p>
               </div>
             ))}
@@ -67,24 +62,20 @@ export default function LoginPage() {
 
         <div className="surface-card p-8">
           <div className="data-label">CLI session</div>
-          <h2 className="mt-4 text-3xl font-semibold leading-tight">Awaiting handshake</h2>
+          <h2 className="mt-4 text-3xl font-semibold leading-tight">Waiting for CLI</h2>
 
           <div className="mt-8 space-y-5">
             {sessionFields.map((field) => (
               <div key={field} className="border-t border-[var(--border)] pt-4">
                 <div className="data-label">{field}</div>
-                <p className="body-copy mt-3">
-                  This value should be populated by the auth flow once the CLI opens the browser.
-                </p>
+                <p className="body-copy mt-3 text-[var(--muted)]">—</p>
               </div>
             ))}
           </div>
 
           <div className="mt-8 border-t border-[var(--border)] pt-4">
-            <div className="data-label">After approval</div>
-            <p className="body-copy mt-3">
-              When authentication succeeds, the CLI can continue and this browser tab can close.
-            </p>
+            <div className="data-label">Status</div>
+            <p className="body-copy mt-3">Ready to complete authentication.</p>
           </div>
         </div>
       </section>

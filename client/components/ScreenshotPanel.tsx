@@ -72,9 +72,7 @@ export default function ScreenshotPanel() {
                 <span className="data-label">No screenshot yet</span>
               </div>
             </div>
-            <p className="body-copy mt-4">
-              Capture the current simulator once the app has been built and launched.
-            </p>
+            <p className="body-copy mt-4">Ready to capture.</p>
           </div>
         )}
       </div>
