@@ -30,6 +30,7 @@ cider google login
 | `cider list` | List all sandboxes with ID, IP, status. |
 | `cider status` | Check if the host server is reachable. |
 | `cider <ID> --emulator ios` | Boot iPhone 16 simulator in the sandbox. **Do this before building.** |
+| `cider <ID> --ss` | Take a screenshot of the simulator and open it locally. |
 | `cider <ID> --google` | Start interactive Gemini agent session to build an iOS app. |
 | `cider stop <ID>` | Stop and permanently delete a sandbox. |
 | `cider google login` | Save your Gemini API key. |
