@@ -1,9 +1,15 @@
 import type { Metadata } from "next";
+import { Public_Sans } from "next/font/google";
 import "./globals.css";
 
+const bodyFont = Public_Sans({
+  subsets: ["latin"],
+  variable: "--font-body",
+});
+
 export const metadata: Metadata = {
-  title: "Cider — Brew iOS apps in the cloud",
-  description: "macOS sandboxes as a service for AI coding agents",
+  title: "Cider",
+  description: "Simple frontend for Cider sandbox creation, auth, and dashboard data.",
 };
 
 export default function RootLayout({
@@ -12,8 +18,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="dark">
-      <body className="antialiased">{children}</body>
+    <html lang="en">
+      <body className={`${bodyFont.variable} antialiased`}>{children}</body>
     </html>
   );
 }

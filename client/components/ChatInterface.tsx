@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import type { ChatMessage, ToolCall } from "@/lib/types";
+import CiderIcon from "./CiderIcon";
 
 interface Props {
   onToolCall?: (toolCall: ToolCall) => void;
@@ -13,7 +14,6 @@ export default function ChatInterface({ onToolCall, onBuildOutput }: Props) {
   const [input, setInput] = useState("");
   const [isRunning, setIsRunning] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -145,67 +145,90 @@ export default function ChatInterface({ onToolCall, onBuildOutput }: Props) {
   };
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="px-4 py-2 border-b border-cider-border">
-        <h2 className="text-sm font-semibold text-cider-text-dim">Chat</h2>
+    <section className="surface-card p-6">
+      <div className="panel-header">
+        <div className="flex items-center gap-3">
+          <CiderIcon size={32} />
+          <div>
+            <div className="data-label">Prompt</div>
+            <h2 className="mt-2 text-3xl leading-none">Build with Cider</h2>
+          </div>
+        </div>
+        <span
+          className={`rounded-full px-3 py-1 text-[11px] font-semibold ${
+            isRunning ? "bg-orange-50 text-orange-700" : "bg-stone-100 text-[var(--muted)]"
+          }`}
+        >
+          {isRunning ? "running" : "idle"}
+        </span>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+      <div className="space-y-3">
         {messages.length === 0 && (
-          <div className="text-center text-cider-text-dim text-xs py-12">
-            <p className="mb-2">Describe the iOS app you want to build.</p>
-            <p className="text-[11px]">
-              e.g., &quot;Build a simple counter app for iPhone&quot;
+          <div className="rounded-[22px] border border-dashed border-[var(--border-strong)] px-5 py-8">
+            <p className="body-copy">
+              Describe the app you want the sandbox to build. The dashboard will stream
+              tool calls, build output, and the simulator capture beside it.
             </p>
           </div>
         )}
-        {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={`fade-in rounded-lg px-3 py-2 text-sm ${
-              msg.role === "user"
-                ? "bg-cider-accent/10 border border-cider-accent/20 ml-8"
-                : msg.role === "system"
-                ? "bg-cider-red/10 border border-cider-red/20"
-                : "bg-cider-surface border border-cider-border mr-8"
-            }`}
-          >
-            <p className="text-[11px] text-cider-text-dim mb-1">
-              {msg.role === "user" ? "You" : msg.role === "assistant" ? "Cider" : "System"}
-            </p>
-            <p className="whitespace-pre-wrap text-xs leading-relaxed">{msg.content}</p>
-          </div>
-        ))}
-        {isRunning && (
-          <div className="flex items-center gap-2 text-xs text-cider-accent fade-in">
-            <div className="w-1.5 h-1.5 rounded-full bg-cider-accent animate-pulse" />
-            Agent is working...
-          </div>
-        )}
-        <div ref={messagesEndRef} />
+        <div className="max-h-[360px] space-y-3 overflow-y-auto pr-1">
+          {messages.map((msg) => (
+            <div
+              key={msg.id}
+              className={`message-card text-sm ${
+                msg.role === "user"
+                  ? "message-card--user"
+                  : msg.role === "system"
+                    ? "message-card--system"
+                    : "message-card--assistant"
+              }`}
+            >
+              <p className="data-label mb-2">
+                {msg.role === "user" ? "You" : msg.role === "assistant" ? "Cider" : "System"}
+              </p>
+              <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+            </div>
+          ))}
+          {isRunning && (
+            <div className="rounded-[18px] bg-orange-50 px-4 py-3 text-sm text-orange-700">
+              Agent is working in the sandbox.
+            </div>
+          )}
+          <div ref={messagesEndRef} />
+        </div>
       </div>
 
-      <div className="p-3 border-t border-cider-border">
-        <div className="flex gap-2">
-          <input
-            ref={inputRef}
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && sendPrompt()}
-            placeholder={isRunning ? "Agent is working..." : "Describe your iOS app..."}
-            disabled={isRunning}
-            className="flex-1 px-3 py-2 rounded-lg bg-cider-terminal border border-cider-border text-sm text-cider-text placeholder:text-cider-text-dim/50 focus:outline-none focus:border-cider-accent/50 disabled:opacity-50"
-          />
+      <div className="mt-6 space-y-3">
+        <label className="data-label" htmlFor="build-request">
+          Build request
+        </label>
+        <textarea
+          id="build-request"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => {
+            if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+              void sendPrompt();
+            }
+          }}
+          placeholder="Build a simple counter app for iPhone with a large number display, plus and minus buttons, and a reset button."
+          disabled={isRunning}
+          className="form-area"
+        />
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="body-copy text-sm">Submit with the button or press Ctrl/Cmd + Enter.</p>
           <button
-            onClick={sendPrompt}
+            onClick={() => {
+              void sendPrompt();
+            }}
             disabled={isRunning || !input.trim()}
-            className="px-4 py-2 rounded-lg bg-cider-accent text-white text-sm font-medium hover:bg-cider-accent-dim transition-colors disabled:opacity-30 disabled:cursor-not-allowed glow-orange"
+            className="button-primary disabled:cursor-not-allowed disabled:opacity-40"
           >
-            Build
+            Send to sandbox
           </button>
         </div>
       </div>
-    </div>
+    </section>
   );
 }

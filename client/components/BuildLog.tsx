@@ -16,39 +16,40 @@ export default function BuildLog({ lines }: Props) {
   }, [lines]);
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="px-4 py-2 border-b border-cider-border flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-cider-text-dim">Build Output</h2>
+    <section className="surface-card p-6">
+      <div className="panel-header">
+        <div>
+          <div className="data-label">Build</div>
+          <h2 className="mt-2 text-3xl leading-none">Build output</h2>
+        </div>
         {lines.length > 0 && (
-          <span className="text-[11px] text-cider-text-dim">
-            {lines.length} lines
-          </span>
+          <span className="data-label">{lines.length} lines</span>
         )}
       </div>
 
       <div
         ref={containerRef}
-        className="flex-1 overflow-y-auto p-4 bg-cider-terminal"
+        className="terminal-feed max-h-[420px] overflow-y-auto p-4"
       >
         {lines.length === 0 ? (
-          <p className="text-xs text-cider-text-dim/50 text-center py-8">
-            Build output will appear here...
-          </p>
+          <div className="rounded-[18px] border border-dashed border-[var(--border-strong)] px-5 py-10 text-center">
+            <p className="body-copy">Build output from sandbox commands appears here.</p>
+          </div>
         ) : (
-          <pre className="terminal-text text-cider-text">
+          <pre className="whitespace-pre-wrap break-words text-[13px] text-[var(--text)]">
             {lines.map((line, i) => (
               <div
                 key={i}
                 className={
                   line.includes("error:") || line.includes("Error:")
-                    ? "text-cider-red"
+                    ? "text-red-700"
                     : line.includes("warning:")
-                    ? "text-yellow-500"
+                      ? "text-amber-700"
                     : line.startsWith("$")
-                    ? "text-cider-accent"
+                      ? "text-[var(--accent-strong)]"
                     : line.includes("BUILD SUCCEEDED") || line.includes("Build Succeeded")
-                    ? "text-cider-green font-bold"
-                    : ""
+                      ? "font-bold text-emerald-700"
+                      : ""
                 }
               >
                 {line}
@@ -57,6 +58,6 @@ export default function BuildLog({ lines }: Props) {
           </pre>
         )}
       </div>
-    </div>
+    </section>
   );
 }

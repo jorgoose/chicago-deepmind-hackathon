@@ -25,7 +25,7 @@ export default function ConnectionStatus() {
   };
 
   useEffect(() => {
-    checkStatus();
+    void checkStatus();
     const interval = setInterval(checkStatus, 10000);
     return () => clearInterval(interval);
   }, []);
@@ -33,36 +33,50 @@ export default function ConnectionStatus() {
   const connected = status !== null;
 
   return (
-    <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-cider-surface border border-cider-border">
-      <div className="relative">
-        <div
-          className={`w-3 h-3 rounded-full ${
-            connected ? "bg-cider-green pulse-green" : "bg-cider-red"
-          }`}
-        />
-        {connected && (
-          <div className="absolute inset-0 w-3 h-3 rounded-full bg-cider-green opacity-30 animate-ping" />
-        )}
+    <section className="surface-card p-6">
+      <div className="panel-header">
+        <div>
+          <div className="data-label">Sandbox</div>
+          <h2 className="mt-2 text-3xl leading-none">Connection state</h2>
+        </div>
+        <div className="flex items-center gap-3 rounded-full border border-[var(--border)] bg-white/72 px-4 py-2">
+          <span className={`status-dot ${connected ? "status-dot--live" : "status-dot--down"}`} />
+          <span className="text-sm font-semibold">
+            {checking ? "Checking..." : connected ? "Connected" : "Disconnected"}
+          </span>
+        </div>
       </div>
 
-      <div className="flex-1 min-w-0">
+      <div className="grid gap-3 md:grid-cols-2">
         {checking ? (
-          <p className="text-xs text-cider-text-dim">Connecting to sandbox...</p>
-        ) : connected ? (
-          <div className="space-y-0.5">
-            <p className="text-xs font-medium text-cider-green">Connected</p>
-            <p className="text-[11px] text-cider-text-dim truncate">
-              macOS {status.macos_version} &middot;{" "}
-              {status.xcode.split("\n")[0]} &middot;{" "}
-              {status.booted_simulators.length > 0
-                ? status.booted_simulators.map((s) => s.name).join(", ")
-                : "No simulators booted"}
-            </p>
+          <div className="rounded-[22px] border border-dashed border-[var(--border-strong)] px-5 py-8 md:col-span-2">
+            <p className="body-copy">Checking the remote sandbox status.</p>
           </div>
+        ) : connected ? (
+          <>
+            <div className="rounded-[22px] border border-[var(--border)] bg-white/72 p-5">
+              <div className="data-label">Environment</div>
+              <p className="mt-3 text-lg font-semibold">macOS {status.macos_version}</p>
+              <p className="body-copy mt-2">{status.xcode.split("\n")[0]}</p>
+            </div>
+            <div className="rounded-[22px] border border-[var(--border)] bg-white/72 p-5">
+              <div className="data-label">Simulator</div>
+              <p className="mt-3 text-lg font-semibold">
+                {status.booted_simulators.length > 0
+                  ? status.booted_simulators.map((simulator) => simulator.name).join(", ")
+                  : "No booted simulator"}
+              </p>
+              <p className="body-copy mt-2">Disk: {status.disk}</p>
+            </div>
+            <div className="rounded-[22px] border border-[var(--border)] bg-white/72 p-5 md:col-span-2">
+              <div className="data-label">Project root</div>
+              <p className="mono-inline mt-3 break-all">{status.project_root}</p>
+            </div>
+          </>
         ) : (
-          <div className="space-y-0.5">
-            <p className="text-xs font-medium text-cider-red">Disconnected</p>
-            <p className="text-[11px] text-cider-text-dim truncate">{error}</p>
+          <div className="rounded-[22px] border border-[rgba(199,70,47,0.2)] bg-red-50/70 px-5 py-8 md:col-span-2">
+            <p className="text-sm font-semibold text-red-700">Sandbox unreachable</p>
+            <p className="body-copy mt-2">{error}</p>
           </div>
         )}
       </div>
@@ -70,12 +84,12 @@ export default function ConnectionStatus() {
       <button
         onClick={() => {
           setChecking(true);
-          checkStatus();
+          void checkStatus();
         }}
-        className="text-[11px] px-2 py-1 rounded bg-cider-border hover:bg-cider-text-dim/20 transition-colors text-cider-text-dim"
+        className="button-secondary mt-5"
       >
-        Retry
+        Refresh status
       </button>
-    </div>
+    </section>
   );
 }

@@ -34,45 +34,50 @@ export default function ScreenshotPanel() {
   }, []);
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="px-4 py-2 border-b border-cider-border flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-cider-text-dim">Simulator</h2>
+    <section className="surface-card p-6">
+      <div className="panel-header">
+        <div>
+          <div className="data-label">Preview</div>
+          <h2 className="mt-2 text-3xl leading-none">Simulator</h2>
+        </div>
         <button
           onClick={captureScreenshot}
           disabled={loading}
-          className="text-[11px] px-2 py-1 rounded bg-cider-border hover:bg-cider-text-dim/20 transition-colors text-cider-text-dim disabled:opacity-50"
+          className="button-secondary disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {loading ? "Capturing..." : "Screenshot"}
+          {loading ? "Capturing..." : "Capture screenshot"}
         </button>
       </div>
 
-      <div className="flex-1 flex items-center justify-center p-6 bg-cider-terminal">
+      <div className="rounded-[28px] border border-[var(--border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.92),rgba(243,222,205,0.55))] p-6">
         {screenshotUrl ? (
-          <div className="iphone-frame max-w-[280px] w-full aspect-[9/19.5] bg-black">
-            <img
-              src={screenshotUrl}
-              alt="iOS Simulator screenshot"
-              className="w-full h-full object-contain"
-            />
+          <div className="mx-auto max-w-[300px] rounded-[36px] border border-[var(--border-strong)] bg-white p-3 shadow-[0_24px_80px_rgba(114,90,73,0.18)]">
+            <div className="aspect-[9/19.5] overflow-hidden rounded-[28px] border border-[var(--border)] bg-stone-100">
+              <img
+                src={screenshotUrl}
+                alt="iOS Simulator screenshot"
+                className="h-full w-full object-contain"
+              />
+            </div>
           </div>
         ) : error ? (
-          <div className="text-center">
-            <p className="text-xs text-cider-red mb-2">{error}</p>
-            <p className="text-[11px] text-cider-text-dim">
-              Make sure a simulator is booted
-            </p>
+          <div className="rounded-[22px] border border-[rgba(199,70,47,0.2)] bg-red-50/70 px-5 py-8 text-center">
+            <p className="text-sm font-semibold text-red-700">{error}</p>
+            <p className="body-copy mt-2">Make sure a simulator is booted before capturing.</p>
           </div>
         ) : (
           <div className="text-center">
-            <div className="iphone-frame max-w-[280px] w-full aspect-[9/19.5] bg-black/50 flex items-center justify-center mx-auto mb-4">
-              <span className="text-cider-text-dim text-xs">No screenshot</span>
+            <div className="mx-auto flex max-w-[300px] items-center justify-center rounded-[36px] border border-dashed border-[var(--border-strong)] bg-white/74 p-3 shadow-[0_24px_80px_rgba(114,90,73,0.1)]">
+              <div className="flex aspect-[9/19.5] w-full items-center justify-center rounded-[28px] border border-dashed border-[var(--border-strong)] bg-[var(--surface-muted)]">
+                <span className="data-label">No screenshot yet</span>
+              </div>
             </div>
-            <p className="text-[11px] text-cider-text-dim">
-              Screenshots appear after the app is built and launched
+            <p className="body-copy mt-4">
+              Capture the current simulator once the app has been built and launched.
             </p>
           </div>
         )}
       </div>
-    </div>
+    </section>
   );
 }
