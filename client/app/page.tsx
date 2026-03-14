@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import PlaceholderImage from "@/components/PlaceholderImage";
 import SiteHeader from "@/components/SiteHeader";
 import CiderIcon from "@/components/CiderIcon";
@@ -66,11 +67,16 @@ export default function Home() {
           </div>
         </div>
 
-        <PlaceholderImage
-          index="01"
-          title="Primary product image"
-          copy="Replace this with the hero product visual or a clean screenshot from the browser dashboard."
-        />
+        <div className="overflow-hidden rounded-xl border border-[var(--border)]">
+          <Image
+            src="/CLI.png"
+            alt="Cider CLI"
+            width={940}
+            height={600}
+            className="w-full object-cover"
+            priority
+          />
+        </div>
       </section>
 
       <section className="mt-24 grid items-start gap-14 border-t border-[var(--border)] pt-16 lg:grid-cols-[minmax(0,0.8fr)_minmax(420px,1.2fr)]">
