@@ -264,45 +264,224 @@ Each `cider create` clones a Tart VM from a pre-configured base image (macOS + X
 
 ---
 
-## Demo Plan
+## Demo Guide
 
-**Setup:** Two machines — a Windows laptop (client) and a MacBook (host). Connected via Tailscale.
+### Equipment
 
-**Pre-demo prep on MacBook:**
-1. Tart base image `cider-base` is pre-configured with macOS, Xcode 16, and the Cider sandbox server (auto-starts on boot via launchd)
-2. Host server is running: `uvicorn main:app --host 0.0.0.0 --port 8000`
-3. Tailscale is connected
+| Machine | Role | Requirements |
+|---|---|---|
+| Windows laptop | Client — runs CLI + dashboard | Go, Node.js, Tailscale |
+| MacBook | Host — runs Tart VMs | Tart, Python 3.11+, Tailscale, base image ready |
 
-**Demo script:**
+### Night-Before Checklist (Mac host)
 
-1. **Show the problem** — open Xcode on the Mac, show how complex it is. "This is what you need to build an iPhone app. A $1,300 machine, a 40GB IDE, and years of experience. What if you could skip all of that?"
+Run through these the night before. Do not skip any.
 
-2. **From the Windows laptop:**
-   ```bash
-   cider google login           # authenticate with Gemini
-   cider create                 # spins up a fresh macOS VM with Xcode
-   ```
-   *The audience sees a Tart VM clone and boot in real-time. This is the core demo moment — a Windows machine just provisioned a macOS development environment.*
+```bash
+# 1. Verify Tart is installed and the base image exists
+tart list
+# Should show "cider-base" in the list
 
-3. **Build an app with AI:**
-   ```bash
-   cider sbx-abc123 --emulator ios    # boot iPhone simulator
-   cider sbx-abc123 --google          # start Gemini agent
+# 2. Test-clone the base image to confirm it works
+tart clone cider-base cider-test
+tart run cider-test --no-graphics &
+sleep 30
+tart ip cider-test
+# Should print an IP like 192.168.64.X
 
-   > Build a simple counter app for iPhone
-   ```
-   *The agent creates an Xcode project, writes Swift code, runs xcodebuild, fixes errors, and installs the app in the simulator — all from the Windows terminal.*
+# 3. Verify the sandbox server auto-starts inside the VM
+curl http://$(tart ip cider-test):8000/status
+# Should return JSON with macos_version, xcode, etc.
 
-4. **Show the result** — screenshot of the app running in the iOS Simulator, triggered from a Windows machine that has never had Xcode installed.
+# 4. Verify xcodebuild works inside the VM
+curl -X POST http://$(tart ip cider-test):8000/exec \
+  -H "Content-Type: application/json" \
+  -d '{"command": "xcodebuild -version"}'
+# Should return Xcode version in stdout
 
-5. **Cleanup:**
-   ```bash
-   cider stop sbx-abc123        # deletes the VM
-   ```
+# 5. Clean up the test VM
+tart stop cider-test
+tart delete cider-test
 
-**What's real vs. hardcoded:**
-- Real: Tart VM provisioning, xcodebuild compilation, Simulator screenshot, Gemini tool calls, Tailscale networking, build-error-fix loop
-- Hardcoded: No auth (planned via better-auth), one host Mac, one simulator device (iPhone 16), template-based project creation
+# 6. Start the host server and verify it works
+cd server
+pip install -r requirements.txt
+uvicorn main:app --host 0.0.0.0 --port 8000 &
+
+curl -X POST http://localhost:8000/sandboxes
+# Should clone, boot a VM, and return sandbox JSON with status "running"
+# Note the sandbox ID from the response
+
+curl http://localhost:8000/sandboxes
+# Should list the sandbox you just created
+
+curl -X DELETE http://localhost:8000/sandboxes/<ID-from-above>
+# Should stop and delete the VM
+
+# 7. Verify Tailscale connectivity
+tailscale ip -4
+# Note this IP — the Windows laptop will use it
+```
+
+### Night-Before Checklist (Windows client)
+
+```bash
+# 1. Build the CLI
+cd cli
+go build -o cider.exe .
+
+# 2. Set the host URL (Tailscale IP of the Mac)
+export CIDER_API_URL=http://<mac-tailscale-ip>:8000
+
+# 3. Verify connectivity
+./cider.exe status
+# Should show "Connected" with sandbox count
+
+# 4. Store Gemini API key
+./cider.exe google login
+# Paste your key, should validate successfully
+
+# 5. Full end-to-end dry run
+./cider.exe create
+# Wait for "Sandbox ready", note the ID
+
+./cider.exe list
+# Should show the sandbox with status "running"
+
+./cider.exe <ID> --emulator ios
+# Should boot iPhone 16
+
+./cider.exe <ID> --google
+> Build a SwiftUI app that shows "Hello Cider" in large blue text
+# Watch the agent work — should complete in ~2-3 minutes
+# Type "exit" when done
+
+./cider.exe stop <ID>
+# Should clean up
+
+# 6. If using the dashboard
+cd client
+npm install
+echo 'SANDBOX_URL=http://<mac-tailscale-ip>:8000' > .env.local
+echo 'GEMINI_API_KEY=<your-key>' >> .env.local
+npm run dev
+# Open http://localhost:3000, verify green connection dot
+```
+
+### Demo Script (5-7 minutes)
+
+**Before going on stage:**
+- Mac host server is already running (`uvicorn main:app --host 0.0.0.0 --port 8000`)
+- Windows laptop has CLI built, `CIDER_API_URL` set, Gemini key saved
+- Terminal is open on the Windows laptop, font size large enough for audience
+- Optional: dashboard open in a browser tab at `localhost:3000`
+
+**Talking points and commands:**
+
+#### 1. The Problem (30 sec, no commands)
+
+"The Apple app economy is worth $1.3 trillion. 36 million developers. But to build an iOS app, you need a Mac — a $600 minimum, often $1,300+. AI tools like Copilot and Cursor have made it so anyone can *write* an app. But you still can't *build* it without Apple hardware. 31 million developers are locked out. We built Cider to fix that."
+
+#### 2. Spin Up a Sandbox (60 sec)
+
+```bash
+cider create
+```
+
+**While it's cloning/booting (~30-60 sec), narrate:**
+
+"Cider just cloned a macOS virtual machine with Xcode pre-installed on our Mac host. This Windows laptop has never had Xcode on it. It doesn't need to. The sandbox is a full macOS environment — Xcode, iOS Simulator, Swift compiler — all running in an isolated VM."
+
+**When it prints "Sandbox ready":**
+
+"We have a sandbox. Let's boot the iPhone simulator."
+
+```bash
+cider <ID> --emulator ios
+```
+
+#### 3. Build an App with Gemini (2-3 min)
+
+```bash
+cider <ID> --google
+```
+
+At the prompt:
+```
+> Build a simple counter app for iPhone. Large number in the center, plus and minus buttons, and a reset button. Clean modern design.
+```
+
+**While the agent works, narrate the tool calls as they appear:**
+
+- "It's creating an Xcode project from our template..."
+- "Now it's writing the SwiftUI code — ContentView.swift..."
+- "Running xcodebuild — this is the real Xcode compiler running on the Mac..."
+- If errors: "Build failed — but watch, the agent reads the error, fixes the code, and rebuilds automatically." (This is actually a *good* demo moment.)
+- "Build succeeded. It's installing the app in the simulator..."
+- "And taking a screenshot."
+
+#### 4. The Result (30 sec)
+
+"A counter app, built and running in an iOS Simulator. Written by Gemini, compiled by Xcode, on a Mac that this Windows laptop provisioned through a CLI. The developer never opened Xcode. Never wrote Swift. Never bought a Mac."
+
+If dashboard is open, switch to browser tab to show the 4-panel view.
+
+#### 5. Cleanup (15 sec)
+
+```bash
+cider stop <ID>
+```
+
+"The VM is gone. Clean. If we run `cider create` again, we get a fresh sandbox in under a minute."
+
+#### 6. Close (30 sec)
+
+"AI collapsed the skill barrier to building apps. Cider collapses the hardware barrier. What's left is just the idea. That's Cider — brew iOS apps in the cloud."
+
+### Fallback Plans
+
+| Problem | Fallback |
+|---|---|
+| `cider create` is slow (>90 sec) | Pre-create a sandbox before the demo. Start from `cider list` showing it already running. |
+| Gemini agent fails or loops | Have a pre-tested prompt ready (counter app is most reliable). If it still fails, show a pre-built app: "Here's one we built earlier" — run `cider <ID> --google` with "Add a dark mode toggle to the app" to show the agent modifying existing code instead of building from scratch. |
+| Tailscale won't connect | Hotspot both machines to the same phone. Or run everything on the Mac itself (CLI works locally too). |
+| VM won't boot | Show the host server + API directly via curl. "The infrastructure works — here's the API creating a sandbox, here's xcodebuild running inside it." |
+| xcodebuild fails repeatedly | The base image Xcode may need a re-sign. Pre-test the exact build command the night before. If it fails during demo, show the error-fix loop as a feature: "The agent is debugging in real-time." |
+| Total disaster | Play the backup video. Record one the night before: screen-record the full `create → build → screenshot` flow. |
+
+### Reliable Prompts (pre-tested, ordered by reliability)
+
+1. **Counter app** (most reliable): "Build a simple counter app for iPhone. Large number in the center, plus and minus buttons, and a reset button."
+2. **Hello world variant**: "Build a SwiftUI app that shows 'Hello Cider' in large blue text centered on screen."
+3. **Tip calculator**: "Build a tip calculator. Text field for bill amount, segmented control for 15/18/20/25 percent, show tip and total."
+4. **Color grid**: "Build an app with a 3-column grid of colorful squares. Tap a square to show its hex code at the top."
+
+### Timing Estimates
+
+| Step | Expected Time |
+|---|---|
+| `cider create` (clone + boot + server ready) | 30-90 sec |
+| `cider <ID> --emulator ios` | 5-10 sec |
+| Agent builds a simple app (first attempt) | 60-120 sec |
+| Agent fixes a build error and rebuilds | 30-60 sec |
+| Full demo from `create` to screenshot | 3-5 min |
+
+### What's Real vs. Hardcoded
+
+**Real (must work live):**
+- Tart VM provisioning (`tart clone` + `tart run`)
+- `xcodebuild` compilation inside the VM
+- iOS Simulator screenshot
+- Gemini function-calling agent loop
+- Tailscale networking between machines
+- Build-error → fix → rebuild loop
+
+**Hardcoded (fine for hackathon):**
+- No authentication (planned via better-auth)
+- One host Mac (no multi-host orchestration)
+- One simulator device (iPhone 16)
+- Template-based Xcode project creation
+- No sandbox expiration / auto-cleanup
 
 ---
 
