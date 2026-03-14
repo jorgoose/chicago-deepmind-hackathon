@@ -466,6 +466,86 @@ The Cua deep-dive actually **strengthens** Project Idea 2's case on the competit
 
 ---
 
+### Likely Judge Questions & Blockers
+
+Questions judges (or investors) would likely ask, with honest assessments:
+
+#### "How is this different from just using a CI/CD Mac runner?"
+
+**The real challenge here.** CI/CD runners (Codemagic, Bitrise, CircleCI Mac) already give you a Mac in the cloud that compiles Swift and runs tests. The difference is:
+- CI runners are stateless and pipeline-oriented (trigger → build → report). Agent sandboxes need persistent, interactive sessions where an agent iterates.
+- CI runners don't expose MCP endpoints or agent-friendly APIs.
+- CI runners aren't optimized for the "agent writes code, builds, sees error, fixes, rebuilds" loop.
+
+**But** — a skeptic would argue this is a thin UX layer on top of existing CI infrastructure, not a new category. You'd need to prove the agent-interactive workflow is meaningfully different enough to justify a new product vs. adding an API wrapper around Codemagic.
+
+#### "Why wouldn't Apple just do this?"
+
+No good answer. Apple has the hardware, OS, Xcode, Xcode Cloud, and developer relationships. If they see demand, they can ship "Xcode Cloud for Agents" as a first-party feature at WWDC. Your best defense is speed (move before they do) and that Apple historically moves slowly on cloud/infrastructure — but this is a hope, not a strategy. Any pitch needs to acknowledge this risk honestly.
+
+#### "What are the unit economics? Can this be profitable?"
+
+Tough. The cost floor is dictated by Apple hardware:
+- Mac mini M4: ~$600 (amortized over 3 years = ~$0.023/hr hardware cost)
+- Colocation / power / networking: ~$50-80/mo per machine
+- Apple's 24-hour minimum means you can't pack multiple short sessions onto one machine efficiently
+- Realistic cost to you: ~$0.10-0.15/hr per sandbox
+- You'd need to charge $0.50-2.00/hr to have healthy margins
+- Competitive pressure from AWS EC2 Mac at $1.08/hr (and they can subsidize)
+
+Profitable but tight margins compared to Linux sandbox businesses where compute costs pennies.
+
+#### "How do you handle Apple's licensing restrictions?"
+
+Apple requires that macOS VMs run only on Apple hardware (no running macOS on generic x86/ARM servers). This means:
+- You must own or lease physical Mac hardware (Mac minis, Mac Pros, Mac Studios)
+- You cannot use standard cloud infrastructure (EC2 non-Mac, GCP, Azure generic VMs)
+- The 24-hour Dedicated Host minimum on AWS applies
+- Scaling means buying more Macs — you can't just spin up more VMs on existing servers
+
+This is a real operational constraint. It limits how fast you can scale and increases capital requirements.
+
+#### "What if AI agents get good enough to generate cross-platform code instead?"
+
+A legitimate long-term risk. If AI agents become so capable that they can generate equivalent apps using Flutter/React Native/Kotlin Multiplatform instead of Swift, the need for macOS sandboxes shrinks. The counter-argument is:
+- Apple actively pushes developers toward native Swift/SwiftUI with platform-specific features (widgets, intents, visionOS, etc.)
+- Performance-sensitive and platform-specific apps will always need native development
+- Apple's App Store review increasingly favors native apps
+
+But the trend toward cross-platform is real and would compress the addressable market.
+
+#### "What's your distribution strategy? How do developers find you?"
+
+Agent sandboxes are infrastructure — developers don't search for them. You need to be where the agents are:
+- **Integrations:** Plugin for Claude Code, Codex, Cursor, Gemini CLI
+- **Marketplace listings:** VS Code extensions, JetBrains plugins
+- **Developer content:** "How to build iOS apps with Claude Code" tutorials that naturally require your infra
+- **Open source:** An open-source agent-to-Xcode bridge that works locally, with cloud as the upgrade path
+
+This is solvable but requires focused GTM effort.
+
+#### "Why can't someone just run Tart/Orchard (open source) on their own Macs?"
+
+They can. And for teams with existing Mac hardware, they probably should. Your value prop is for:
+- Teams that don't want to manage Mac hardware
+- Developers who don't own Macs at all
+- Burst capacity (50 agents need Macs right now, for 2 hours)
+- The convenience/reliability premium (SLA, uptime, pre-configured Xcode)
+
+This is similar to the "why use AWS instead of running your own servers" argument — valid, but you need to be honest that self-hosting is a viable alternative for many users.
+
+#### "This is a Google DeepMind hackathon — where's the Google/DeepMind angle?"
+
+**The hardest question for this specific hackathon.** Honest answer:
+- Gemini CLI could be the demo agent, but it's interchangeable with Claude Code or Codex
+- You could use Vertex AI for intelligent build-error diagnosis / auto-fix, but that's a feature, not the core product
+- Google Cloud could be the control plane (GKE for orchestration, Cloud Run for API), but the actual sandboxes must run on Apple hardware
+- There's no deep Gemini integration that makes this product fundamentally better — any LLM works
+
+This is the weakest point for hackathon context specifically. The product doesn't *need* Google tech in a way that's core to its value.
+
+---
+
 ## Team
 
 *[To be filled in]*
