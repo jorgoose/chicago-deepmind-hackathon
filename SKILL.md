@@ -17,22 +17,38 @@ Cider gives you a macOS sandbox in the cloud — so you can build, compile, and 
 
 ### Create a sandbox
 ```bash
+export CIDER_API_URL=https://2bc6-50-171-72-195.ngrok-free.app/
 cider create
 cider create --repo "https://github.com/user/repo.git"
 ```
-Returns a sandbox ID (e.g., `sbx-a1b2c3d4`). The sandbox is a fresh macOS VM with Xcode ready to use. If `--repo` is provided, the repo is cloned into the sandbox.
+This clones a macOS base image (with Xcode pre-installed) into a new Tart VM, boots it, waits for the sandbox server inside the VM to be ready, and returns a sandbox ID.
+
+Example output:
+```
+  ⠋ Creating sandbox...
+  ✓ Sandbox ready
+
+  ID:      sbx-6017f799
+  VM:      cider-sbx-6017f799
+  IP:      192.168.64.74
+  Status:  running
+```
+
+The sandbox ID (`sbx-6017f799`) is what you use for all subsequent commands. The IP is the VM's internal address — the host server proxies requests to it automatically, so you never need to use the IP directly.
+
+If `--repo` is provided, the repo is cloned inside the sandbox after boot.
 
 ### List sandboxes
 ```bash
 cider list
 ```
-Shows all active sandboxes with their ID, status, and IP.
+Shows all sandboxes with their ID, VM name, IP, status, and creation time. Statuses: `creating` (VM booting), `running` (ready to use), `error` (VM failed to boot), `stopped`.
 
 ### Boot iOS Simulator
 ```bash
 cider <ID> --emulator ios
 ```
-Boots an iPhone 16 simulator inside the sandbox. Required before you can build and run iOS apps.
+Boots an iPhone 16 simulator inside the sandbox. **You must do this before building and running iOS apps.** The simulator needs to be booted for `xcodebuild` to target it and for `xcrun simctl install/launch` to work.
 
 ### Start Gemini agent session
 ```bash
@@ -44,7 +60,7 @@ Opens an interactive prompt where you describe what to build. The Gemini agent w
 ```bash
 cider status
 ```
-Shows whether the host server is reachable and how many sandboxes are running.
+Shows whether the host server is reachable and how many sandboxes are running. Always run this first to verify your connection.
 
 ### Stop and delete a sandbox
 ```bash
@@ -58,19 +74,80 @@ cider google login
 ```
 Prompts for a Gemini API key. Get one at https://aistudio.google.com/apikey
 
-## Environment
+## Full Creation-to-Build Process
 
-- `CIDER_API_URL` — URL of the Cider host server (e.g., `http://100.96.42.40:8000`). Must be set before using any commands.
+This is the exact sequence to go from zero to a running iOS app:
+
+```bash
+# 1. Set the host URL (ngrok tunnel to the Mac with Tart)
+export CIDER_API_URL=https://2bc6-50-171-72-195.ngrok-free.app/
+
+# 2. Verify connection
+cider status
+# ✓ Connected — 0 sandbox(es)
+
+# 3. Authenticate with Gemini (once)
+cider google login
+# Enter your API key from https://aistudio.google.com/apikey
+
+# 4. Create a sandbox (clones macOS VM, boots it, ~30-90 sec)
+cider create
+# ✓ Sandbox ready
+# ID: sbx-6017f799
+
+# 5. Boot the iOS Simulator inside the sandbox
+cider sbx-6017f799 --emulator ios
+# ✓ iPhone 16 booted
+
+# 6. Start the Gemini agent and tell it what to build
+cider sbx-6017f799 --google
+> Build a simple counter app for iPhone with plus, minus, and reset buttons
+
+# The agent will:
+#   ⚡ create_xcode_project CounterApp
+#   ⚡ list_files CounterApp
+#   ⚡ create_file CounterApp/CounterApp/ContentView.swift
+#   ⚡ execute_command $ xcodebuild -project CounterApp.xcodeproj ...
+#   (if build fails, it reads errors, fixes code, rebuilds)
+#   ⚡ execute_command $ xcrun simctl install booted ...
+#   ⚡ execute_command $ xcrun simctl launch booted ...
+#   ⚡ get_screenshot
+#   ✓ Agent finished
+
+# 7. Clean up when done
+cider stop sbx-6017f799
+# ✓ Sandbox stopped and deleted
+```
+
+## Connecting to the Host
+
+The Cider CLI needs to reach a Cider host server running on a Mac. Set the `CIDER_API_URL` environment variable before using any commands.
+
+### Connecting
+
+The Cider host server is exposed via ngrok. Set `CIDER_API_URL` inline or export it:
+
+```bash
+# Inline (per-command)
+CIDER_API_URL=https://2bc6-50-171-72-195.ngrok-free.app/ cider status
+
+# Or export for the session
+export CIDER_API_URL=https://2bc6-50-171-72-195.ngrok-free.app/
+cider status
+```
+
+Note: trailing slashes are handled automatically — both work.
 
 ## Typical Workflow
 
 ```bash
-# 1. Set up (once)
-export CIDER_API_URL=http://<host-ip>:8000
+# 1. Connect and authenticate (once per session)
+export CIDER_API_URL=https://2bc6-50-171-72-195.ngrok-free.app/
 cider google login
+cider status   # verify "Connected"
 
 # 2. Create a sandbox
-cider create
+CIDER_API_URL=https://2bc6-50-171-72-195.ngrok-free.app/ cider create
 # Returns: sbx-a1b2c3d4
 
 # 3. Boot simulator
@@ -90,40 +167,40 @@ If you need finer control than the CLI provides, you can call the sandbox API di
 
 ```bash
 # Run a command inside the sandbox
-curl -X POST http://$CIDER_API_URL/sandboxes/<ID>/exec \
+curl -X POST $CIDER_API_URL/sandboxes/<ID>/exec \
   -H "Content-Type: application/json" \
   -d '{"command": "xcodebuild -version"}'
 
 # Write a file
-curl -X POST http://$CIDER_API_URL/sandboxes/<ID>/files/write \
+curl -X POST $CIDER_API_URL/sandboxes/<ID>/files/write \
   -H "Content-Type: application/json" \
   -d '{"path": "MyApp/ContentView.swift", "content": "import SwiftUI..."}'
 
 # Read a file
-curl -X POST http://$CIDER_API_URL/sandboxes/<ID>/files/read \
+curl -X POST $CIDER_API_URL/sandboxes/<ID>/files/read \
   -H "Content-Type: application/json" \
   -d '{"path": "MyApp/ContentView.swift"}'
 
 # List files
-curl -X POST http://$CIDER_API_URL/sandboxes/<ID>/files/list \
+curl -X POST $CIDER_API_URL/sandboxes/<ID>/files/list \
   -H "Content-Type: application/json" \
   -d '{"path": ".", "recursive": true}'
 
 # Boot simulator
-curl -X POST http://$CIDER_API_URL/sandboxes/<ID>/simulator/boot \
+curl -X POST $CIDER_API_URL/sandboxes/<ID>/simulator/boot \
   -H "Content-Type: application/json" \
   -d '{}'
 
 # Create Xcode project from template
-curl -X POST http://$CIDER_API_URL/sandboxes/<ID>/project/create \
+curl -X POST $CIDER_API_URL/sandboxes/<ID>/project/create \
   -H "Content-Type: application/json" \
   -d '{"name": "MyApp"}'
 
 # Take simulator screenshot
-curl http://$CIDER_API_URL/sandboxes/<ID>/screenshot --output screenshot.png
+curl $CIDER_API_URL/sandboxes/<ID>/screenshot --output screenshot.png
 
 # Get sandbox system info
-curl http://$CIDER_API_URL/sandboxes/<ID>/status
+curl $CIDER_API_URL/sandboxes/<ID>/status
 ```
 
 ## Building iOS Apps — What You Need to Know
