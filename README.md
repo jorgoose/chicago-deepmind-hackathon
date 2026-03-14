@@ -33,7 +33,7 @@ AI lowered the drawbridge. The moat is now the hardware.
 
 ## The Value Equation
 
-Using the [Hormozi value framework](https://www.acquisition.com/offers) — people pay in proportion to:
+People pay in proportion to:
 
 ```
             Dream Outcome  ×  Perceived Likelihood
