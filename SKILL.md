@@ -1,6 +1,17 @@
 # Cider CLI — Tool Reference for AI Agents
 
-You have access to the Cider CLI, which lets you create and manage macOS sandboxes for building iOS apps. Each sandbox is an isolated macOS VM with Xcode pre-installed.
+## What Cider Is
+
+Cider gives you a macOS sandbox in the cloud — so you can build, compile, and test iOS apps from any machine, even if you don't have a Mac. Each sandbox is an isolated macOS VM with Xcode, the iOS Simulator, and the Swift compiler pre-installed. You interact with it through the Cider CLI or the sandbox API directly.
+
+**Why this matters:** Xcode only runs on macOS. Without Cider, building an iOS app requires owning a Mac ($600+). With Cider, you run `cider create` from any OS, get a sandbox, and start building — the Mac is invisible infrastructure.
+
+**What you can do with it:**
+- Create and destroy macOS sandboxes on demand
+- Write Swift/SwiftUI code and compile it with `xcodebuild` inside the sandbox
+- Boot the iOS Simulator, install apps, take screenshots
+- Use the Gemini agent to build entire iOS apps from a text prompt
+- Call the sandbox API programmatically for full automation
 
 ## Commands
 
