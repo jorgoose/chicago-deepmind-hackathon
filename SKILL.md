@@ -64,23 +64,29 @@ The Cider CLI needs to reach a Cider host server running on a Mac. Set the `CIDE
 
 ### Connecting
 
-The Cider host server is exposed via ngrok:
+The Cider host server is exposed via ngrok. Set `CIDER_API_URL` inline or export it:
 
 ```bash
-export CIDER_API_URL=https://2bc6-50-171-72-195.ngrok-free.app
-cider status   # verify "Connected"
+# Inline (per-command)
+CIDER_API_URL=https://2bc6-50-171-72-195.ngrok-free.app/ cider status
+
+# Or export for the session
+export CIDER_API_URL=https://2bc6-50-171-72-195.ngrok-free.app/
+cider status
 ```
+
+Note: trailing slashes are handled automatically — both work.
 
 ## Typical Workflow
 
 ```bash
 # 1. Connect and authenticate (once per session)
-export CIDER_API_URL=https://2bc6-50-171-72-195.ngrok-free.app
+export CIDER_API_URL=https://2bc6-50-171-72-195.ngrok-free.app/
 cider google login
 cider status   # verify "Connected"
 
 # 2. Create a sandbox
-cider create
+CIDER_API_URL=https://2bc6-50-171-72-195.ngrok-free.app/ cider create
 # Returns: sbx-a1b2c3d4
 
 # 3. Boot simulator

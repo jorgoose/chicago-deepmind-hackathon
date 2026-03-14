@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 type Config struct {
@@ -36,24 +37,23 @@ func Load() *Config {
 	}
 
 	data, err := os.ReadFile(configPath())
-	if err != nil {
-		return cfg
+	if err == nil {
+		var fileCfg Config
+		if err := json.Unmarshal(data, &fileCfg); err == nil {
+			// File values, env takes precedence
+			if cfg.APIUrl == "http://localhost:8000" && fileCfg.APIUrl != "" {
+				cfg.APIUrl = fileCfg.APIUrl
+			}
+			if cfg.GeminiAPIKey == "" {
+				cfg.GeminiAPIKey = fileCfg.GeminiAPIKey
+			}
+			cfg.AuthToken = fileCfg.AuthToken
+			cfg.ActiveSandbox = fileCfg.ActiveSandbox
+		}
 	}
 
-	var fileCfg Config
-	if err := json.Unmarshal(data, &fileCfg); err != nil {
-		return cfg
-	}
-
-	// File values, env takes precedence
-	if cfg.APIUrl == "http://localhost:8000" && fileCfg.APIUrl != "" {
-		cfg.APIUrl = fileCfg.APIUrl
-	}
-	if cfg.GeminiAPIKey == "" {
-		cfg.GeminiAPIKey = fileCfg.GeminiAPIKey
-	}
-	cfg.AuthToken = fileCfg.AuthToken
-	cfg.ActiveSandbox = fileCfg.ActiveSandbox
+	// Strip trailing slash to avoid double-slash in API paths
+	cfg.APIUrl = strings.TrimRight(cfg.APIUrl, "/")
 
 	return cfg
 }
