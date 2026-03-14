@@ -2,7 +2,15 @@
 
 **Brew iOS apps in the cloud.**
 
-macOS sandboxes as a service for AI coding agents. Any developer, on any machine, can build iOS apps with AI. No Mac required.
+macOS sandboxes as a service — for AI agents, for developers, for anyone. Build, compile, and test iOS apps from any machine. No Mac required.
+
+```bash
+cider google login
+cider create --repo "https://github.com/you/your-app.git"
+cider sbx-a1b2c3 --emulator ios
+cider sbx-a1b2c3 --google
+# You're building an iPhone app. From a Windows laptop. With AI.
+```
 
 ---
 
@@ -47,15 +55,13 @@ Ship an iOS app to the App Store. Reach 1.8 billion Apple devices. Participate i
 
 ### Perceived Likelihood: Dramatically Higher
 
-This isn't "learn Swift and maybe figure it out." An AI agent builds the app *for you*. You describe what you want. Gemini writes the Swift, runs `xcodebuild`, reads the errors, fixes them, and keeps going until it compiles. The build-error-fix loop — the part that stops most beginners — is handled autonomously.
-
-You watch the agent work in real-time: tool calls, build output, simulator screenshots. It's not a black box. You see every step, and you see the app running on a simulated iPhone.
+This isn't "learn Swift and maybe figure it out." An AI agent builds the app *for you*. You describe what you want in a terminal prompt. Gemini writes the Swift, runs `xcodebuild`, reads the errors, fixes them, and keeps going until it compiles. The build-error-fix loop — the part that stops most beginners — is handled autonomously.
 
 ### Time Delay: Near Zero
 
 No hardware to buy. No Xcode to download (40GB). No environment to configure. No Apple Developer account to wait 48 hours for approval.
 
-Type a prompt. Watch the agent build. See the app running. Minutes, not days.
+`cider create`. Type a prompt. The agent builds. Minutes, not days.
 
 ### Effort & Sacrifice: Minimal
 
@@ -67,100 +73,185 @@ Type a prompt. Watch the agent build. See the app running. Minutes, not days.
 - No "which simulator do I pick"
 - No disk space management (Xcode eats 40GB+)
 
-You bring a browser and an idea. Cider handles the rest.
+You bring a terminal and an idea. Cider handles the rest.
 
 **The result: value goes to infinity.** Massive dream outcome, high likelihood of success, near-zero delay, near-zero effort. This is why the product works.
 
 ---
 
-## What Cider Does
+## How It Works
 
-A Gemini-powered AI agent on your machine sends commands to a remote Mac over Tailscale. The Mac has Xcode. The agent creates projects, writes Swift code, runs `xcodebuild`, reads errors, fixes them, installs the app in the Simulator, and captures screenshots — all autonomously.
+Cider has two interfaces: a **CLI** (the primary product) and a **web dashboard** (the companion). The CLI is what developers and AI agents use. The dashboard is what you look at.
 
-You interact through a 4-panel dashboard:
+### The CLI — the product
+
+The CLI is a single Go binary. It manages sandbox lifecycle, authenticates with Gemini, boots simulators, and drops you into an agent session where you describe what to build and the AI does it.
+
+```
+cider create                         Create a new sandbox
+cider create --repo <url>            Create sandbox with repo cloned
+cider status                         Check sandbox connection & info
+cider login                          Open dashboard login in browser
+cider google login                   Authenticate with Gemini API key
+cider <ID> --emulator ios            Boot iOS simulator
+cider <ID> --google                  Start Gemini agent session
+```
+
+**This is the interface that matters for agents.** An AI coding agent (Cursor, Claude Code, Copilot Workspace, or any custom agent) can call `cider create`, get a sandbox ID, and use the sandbox API to compile and test iOS code. The CLI is the programmatic entry point to Apple's build toolchain — without needing a Mac.
+
+#### Agent flow
+
+```
+Agent calls: cider create --repo "https://github.com/..."
+  → Sandbox spins up, repo cloned, returns sandbox ID
+
+Agent calls sandbox API directly:
+  POST /files/write   → write Swift files
+  POST /exec          → xcodebuild, xcrun simctl install, xcrun simctl launch
+  GET  /screenshot    → capture simulator screen
+  POST /exec          → read build errors, iterate
+
+Agent ships the app. User never touches Xcode.
+```
+
+#### Human flow
+
+```bash
+$ cider google login
+  Enter your Gemini API key: ****
+  ✓ API key saved
+
+$ cider create
+  ✓ Connected to sandbox
+  ID:           sbx-k8m2q1
+  macOS:        15.2
+  Xcode:        Xcode 16.2
+  Simulators:   none booted
+
+$ cider sbx-k8m2q1 --emulator ios
+  ✓ iPhone 16 booted
+
+$ cider sbx-k8m2q1 --google
+
+  🍺 Cider
+  Brew iOS apps in the cloud
+
+  Type your prompt. The agent will build your iOS app.
+
+  > Build a tip calculator with 15%, 18%, 20%, and 25% options
+
+  ⚡ create_xcode_project TipCalc
+  ✓ done
+  ⚡ list_files TipCalc
+  ✓ done
+  ⚡ create_file TipCalc/TipCalc/ContentView.swift
+  ✓ done
+  ⚡ execute_command $ xcodebuild -project TipCalc.xcodeproj -scheme TipCalc ...
+  ✓ done
+  ⚡ get_screenshot
+  ✓ done
+
+  Your tip calculator is running in the simulator.
+
+  ✓ Agent finished
+```
+
+### The Dashboard — the companion
+
+The web dashboard is a 4-panel Next.js app that gives you a visual window into what the agent is doing. It's complementary — you don't *need* it to build apps, but it makes the experience tangible.
 
 | Panel | What It Shows |
 |---|---|
-| **Chat** | Describe the app you want, watch the agent respond |
-| **Build Log** | Streaming `xcodebuild` output — errors in red, success in green |
-| **Agent Activity** | Timeline of every tool call: file creates, commands, screenshots |
-| **Simulator** | Screenshot of the app running on a simulated iPhone |
+| **Chat** | Prompt input + agent responses |
+| **Build Log** | Streaming `xcodebuild` output — errors red, success green |
+| **Agent Activity** | Timeline of every tool call with status |
+| **Simulator** | Live screenshot of the app in an iPhone frame |
 
-### The 7 Tools
+The dashboard connects to the same sandbox API the CLI uses. It's a viewer, not a controller. The CLI (or any agent) does the work; the dashboard shows it happening.
+
+### The Sandbox API — the foundation
+
+Everything runs through a FastAPI server on the Mac. Both the CLI and dashboard are clients of this API.
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /status` | macOS version, Xcode version, booted simulators, disk |
+| `POST /exec` | Run any shell command, get stdout/stderr/exit_code |
+| `POST /files/write` | Create or overwrite a file |
+| `POST /files/read` | Read file contents |
+| `POST /files/list` | List directory contents |
+| `POST /files/mkdir` | Create directories |
+| `GET /screenshot` | Capture iOS Simulator screen (PNG) |
+| `POST /simulator/boot` | Boot a simulator device |
+| `POST /project/create` | Copy Xcode template, rename, return path |
+| `WS /ws/exec` | Stream command output line-by-line |
+
+### The 7 Agent Tools
 
 The Gemini agent has 7 tools, each mapped to a sandbox API call:
 
-| Tool | What It Does |
+| Tool | Maps To |
 |---|---|
-| `create_xcode_project(name)` | Copy SwiftUI template, rename, ready to build |
-| `create_file(path, content)` | Write Swift files into the project |
-| `read_file(path)` | Read existing code (to understand before modifying) |
-| `list_files(path)` | Explore project structure |
-| `execute_command(command)` | Run shell commands — `xcodebuild`, `xcrun simctl`, etc. |
-| `get_screenshot()` | Capture the iOS Simulator screen |
-| `get_sandbox_status()` | Check macOS version, Xcode version, booted simulators |
+| `create_xcode_project(name)` | `POST /project/create` |
+| `create_file(path, content)` | `POST /files/write` |
+| `read_file(path)` | `POST /files/read` |
+| `list_files(path)` | `POST /files/list` |
+| `execute_command(command)` | `POST /exec` |
+| `get_screenshot()` | `GET /screenshot` |
+| `get_sandbox_status()` | `GET /status` |
 
-The agent loops up to 20 iterations: Gemini decides what to do, we execute the tool on the Mac, return the result, Gemini continues. Build fails? It reads the errors, fixes the code, rebuilds. This is the core demo loop.
+The agent loops up to 20 iterations: Gemini decides what to do, we execute the tool on the Mac, return the result, Gemini continues. Build fails? It reads the errors, fixes the code, rebuilds.
 
 ---
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│  Your Machine (any OS)                                  │
-│                                                         │
-│  ┌─────────────────────────────────────────────────┐    │
-│  │  Next.js Dashboard (localhost:3000)              │    │
-│  │                                                  │    │
-│  │  ┌──────────┐  ┌──────────┐  ┌──────────────┐  │    │
-│  │  │   Chat   │  │  Build   │  │   Simulator   │  │    │
-│  │  │Interface │  │   Log    │  │  Screenshot   │  │    │
-│  │  └──────────┘  └──────────┘  └──────────────┘  │    │
-│  │  ┌──────────────────────────────────────────┐   │    │
-│  │  │         Agent Activity Timeline          │   │    │
-│  │  └──────────────────────────────────────────┘   │    │
-│  └────────────────────┬────────────────────────────┘    │
-│                       │ SSE                              │
-│  ┌────────────────────▼────────────────────────────┐    │
-│  │  API Route: Gemini 2.5 Pro Agent Loop           │    │
-│  │  (function calling, 7 tools, max 20 iterations) │    │
-│  └────────────────────┬────────────────────────────┘    │
-│                       │                                  │
-└───────────────────────┼──────────────────────────────────┘
-                        │ Tailscale (peer-to-peer)
-┌───────────────────────┼──────────────────────────────────┐
-│  MacBook Sandbox      │                                  │
-│                       ▼                                  │
-│  ┌─────────────────────────────────────────────────┐    │
-│  │  FastAPI Server (port 8000)                     │    │
-│  │                                                  │    │
-│  │  /exec          → shell commands                │    │
-│  │  /files/*       → file I/O                      │    │
-│  │  /project/create → Xcode template copy          │    │
-│  │  /screenshot    → xcrun simctl io screenshot    │    │
-│  │  /simulator/boot → xcrun simctl boot            │    │
-│  │  /status        → system info                   │    │
-│  │  /ws/exec       → streaming command output      │    │
-│  └─────────────────────────────────────────────────┘    │
-│                                                          │
-│  Xcode 16 + iOS Simulator + SwiftUI Template             │
-└──────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│  Any Machine (Windows, Linux, Mac)                           │
+│                                                              │
+│  ┌──────────────────────┐    ┌───────────────────────────┐  │
+│  │  CLI (Go binary)     │    │  Dashboard (Next.js)      │  │
+│  │                      │    │                           │  │
+│  │  cider create        │    │  ┌──────┐ ┌───────────┐  │  │
+│  │  cider <ID> --google │    │  │ Chat │ │ Build Log │  │  │
+│  │                      │    │  └──────┘ └───────────┘  │  │
+│  │  Gemini agent loop   │    │  ┌──────┐ ┌───────────┐  │  │
+│  │  (7 tools, 20 iter)  │    │  │Agent │ │ Simulator │  │  │
+│  └──────────┬───────────┘    │  │ Log  │ │ Screenshot│  │  │
+│             │                │  └──────┘ └───────────┘  │  │
+│             │                └─────────────┬─────────────┘  │
+│             │                              │                │
+│             └──────────┬───────────────────┘                │
+│                        │  HTTP / WebSocket                  │
+└────────────────────────┼────────────────────────────────────┘
+                         │  Tailscale (peer-to-peer)
+┌────────────────────────┼────────────────────────────────────┐
+│  Mac Sandbox           │                                    │
+│                        ▼                                    │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │  FastAPI (port 8000)                                 │  │
+│  │                                                      │  │
+│  │  /exec, /files/*, /project/create, /screenshot,      │  │
+│  │  /simulator/boot, /status, /ws/exec                  │  │
+│  └──────────────────────────────────────────────────────┘  │
+│                                                            │
+│  Xcode 16 · iOS Simulator · SwiftUI Template               │
+└────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
 ## Quick Start
 
-### 1. MacBook (sandbox server)
+### 1. Mac (sandbox server)
 
 ```bash
 cd server
 pip install -r requirements.txt
 
 # Create the Xcode template project
-mkdir -p ~/CiderTemplate
-# (Open Xcode → New Project → iOS App → SwiftUI → name it "CiderTemplate" → save to ~/CiderTemplate)
+# Open Xcode → New Project → iOS App → SwiftUI → name it "CiderTemplate" → save to ~/CiderTemplate
 
 # Boot a simulator
 xcrun simctl boot "iPhone 16"
@@ -170,27 +261,34 @@ open -a Simulator
 uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
-### 2. Windows / Linux (client dashboard)
+### 2. Any machine (CLI)
+
+```bash
+cd cli
+go build -o cider .
+
+# Authenticate
+./cider google login
+
+# Set sandbox URL (Tailscale IP of the Mac)
+export CIDER_API_URL=http://<tailscale-ip>:8000
+
+# Create sandbox and start building
+./cider create
+./cider <ID> --emulator ios
+./cider <ID> --google
+```
+
+### 3. Optional: Dashboard
 
 ```bash
 cd client
-
-# Configure
 echo 'SANDBOX_URL=http://<tailscale-ip>:8000' > .env.local
 echo 'GEMINI_API_KEY=<your-key>' >> .env.local
-
-# Install and run
-npm install
-npm run dev
+npm install && npm run dev
 ```
 
-### 3. Use it
-
-Open `http://localhost:3000`. Check the green connection dot. Type:
-
-> Build a simple counter app for iPhone with a large number display, plus and minus buttons, and a reset button.
-
-Watch the agent work.
+Open `http://localhost:3000` to watch the agent work visually.
 
 ---
 
@@ -198,9 +296,13 @@ Watch the agent work.
 
 Cloud Mac services already exist (MacStadium, MacinCloud, AWS EC2 Mac). Their entire business model validates the premise: developers need Mac access but don't own Macs.
 
-But those services sell raw VMs. You still need to know Xcode, Swift, provisioning profiles, simulator management, and the full iOS toolchain.
+But those services sell raw VMs. You still need to know Xcode, Swift, provisioning profiles, simulator management, and the full iOS toolchain. They're infrastructure for DevOps teams, not products for developers.
 
-Cider is the layer above. The AI agent *is* the developer experience. The Mac is invisible infrastructure. You don't remote into a Mac — you talk to an agent that happens to have a Mac.
+Cider is the layer above. The CLI is the product. The Mac is invisible infrastructure. You don't SSH into a Mac or remote-desktop into Xcode — you run `cider create` and talk to an AI agent that happens to have a Mac behind it.
+
+**For agents**, the sandbox API is a tool. Cursor, Claude Code, or any custom agent can call it programmatically to compile and test iOS code as part of a larger workflow.
+
+**For humans**, the CLI + dashboard makes the whole thing feel like magic. You type what you want, watch it build, and see the app running on a simulated iPhone.
 
 **AI collapsed the skill barrier. Cider collapses the hardware barrier. What's left is just the idea.**
 
@@ -210,8 +312,9 @@ Cider is the layer above. The AI agent *is* the developer experience. The Mac is
 
 | Component | Technology |
 |---|---|
+| CLI | Go (single binary, zero dependencies) |
 | Sandbox server | Python, FastAPI, uvicorn |
-| Client dashboard | Next.js 16, React 19, Tailwind CSS 4 |
+| Dashboard | Next.js 16, React 19, Tailwind CSS 4 |
 | AI agent | Gemini 2.5 Pro (function calling) |
 | Networking | Tailscale (peer-to-peer WireGuard) |
 | iOS toolchain | Xcode 16, xcrun simctl, xcodebuild |
