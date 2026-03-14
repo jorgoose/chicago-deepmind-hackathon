@@ -546,7 +546,194 @@ This is the weakest point for hackathon context specifically. The product doesn'
 
 ---
 
+### How This Compares to Existing Agent Sandboxes
+
+#### The Current Landscape
+
+Today, AI coding agents run in cloud sandboxes — but every single one is Linux-only:
+
+| Platform | What It Is | Startup Time | Persistence | OS | Pricing |
+|---|---|---|---|---|---|
+| **OpenAI Codex Cloud** | Isolated Linux containers per task. You connect a GitHub repo, type a task, agent works autonomously, presents diffs + PR when done. | Seconds | None (ephemeral per task) | Linux | Included with ChatGPT Pro |
+| **E2B** | Firecracker microVMs via API. `Sandbox.create()` → run code → destroy. Snapshot-based cold starts. | <200ms | Beta (unreliable) | Linux | ~$0.05/hr per vCPU |
+| **Fly.io Sprites** | Persistent Firecracker VMs. Long-lived, auto-hibernate, checkpoint/restore. Claude Code pre-installed. | 1-2s (new), ~300ms (restore) | Indefinite | Linux | ~$0.12/hr idle, ~$0.46/4hr session |
+| **Daytona** | AI agent sandboxes. Claims macOS/Windows/Linux. Full desktop environments. | Sub-90ms (Linux) | Yes | Linux, Windows, macOS (claimed) | Usage-based, $200 free |
+
+**What they all have in common:** The agent gets a sandboxed environment, runs terminal commands, edits files, runs tests, and reports results. The isolation protects the host. The API makes it programmable.
+
+**What none of them can do:** Compile a Swift app, run iOS Simulator, use Xcode, code-sign for App Store, or do anything that requires macOS.
+
+#### What's Different About a macOS Agent Sandbox
+
+The core product is the same *concept* as E2B/Sprites/Codex — give an AI agent a sandboxed environment to work in. The difference is that macOS sandboxes unlock an entire platform ecosystem that's currently impossible:
+
+| Capability | Linux Sandbox | macOS Sandbox |
+|---|---|---|
+| Compile Swift packages | Yes (Swift is cross-platform) | Yes |
+| Build iOS/macOS apps (UIKit, SwiftUI) | **No** | Yes |
+| Run iOS Simulator | **No** | Yes |
+| Xcode project management | **No** | Yes |
+| Code signing & provisioning | **No** | Yes |
+| Xcode 26.3 MCP tools (20 built-in) | **No** | Yes |
+| App Store submission | **No** | Yes |
+| SwiftUI previews / snapshots | **No** | Yes |
+| Test on device simulators (iPhone, iPad, Watch, Vision Pro) | **No** | Yes |
+
+#### How Agents Work in Sandboxes Today (Concrete Details)
+
+**Codex Cloud flow:**
+1. You connect a GitHub repo in the ChatGPT sidebar
+2. Type a task: "Add dark mode support to the settings page"
+3. Codex spins up a Linux container with your repo + dependencies pre-installed
+4. Agent reads code, writes changes, runs tests — you see reasoning + terminal logs in real-time
+5. When done, it presents diffs. You click "Open PR" → GitHub PR created
+6. No internet in the sandbox by default. ~40-60% first-try success rate per real-world reviews
+
+**E2B flow:**
+```python
+from e2b_code_interpreter import Sandbox
+
+with Sandbox.create() as sandbox:       # Firecracker microVM in <200ms
+    sandbox.run_code("pip install pandas")
+    result = sandbox.run_code("import pandas; print(pandas.__version__)")
+    print(result.text)
+```
+
+**Sprites flow:**
+```bash
+sprite create my-project               # persistent Linux VM in 1-2s
+sprite exec my-project "git clone https://github.com/user/repo && cd repo && npm test"
+# ... days later, VM auto-hibernated ...
+sprite exec my-project "cd repo && npm test"   # auto-resumes in ~300ms
+```
+
+**Claude Code in a sandbox (today):**
+- Run Claude Code in a Docker devcontainer or E2B sandbox
+- Use `--dangerously-skip-permissions` flag (the container IS the security boundary)
+- Agent works via terminal/file operations, completely headless
+- A FastAPI wrapper can expose this over HTTP for programmatic control
+
+#### What the macOS Equivalent Would Look Like
+
+**The same DX, but for Apple platforms:**
+
+```python
+from macbox import Sandbox
+
+# Create a macOS sandbox with Xcode pre-installed
+sandbox = Sandbox.create(
+    template="xcode-16",        # macOS 15 + Xcode 16 + iOS 18 Simulator
+    persist=True                # 24hr minimum anyway, lean into persistence
+)
+
+# Clone a Swift project
+sandbox.exec("git clone https://github.com/user/my-ios-app && cd my-ios-app")
+
+# Connect an AI agent via MCP (Xcode 26.3 native support)
+mcp_url = sandbox.get_mcp_endpoint()
+# → "https://sandbox-a1b2c3.macbox.dev:8080/mcp"
+# Hand this URL to Claude Code, Gemini CLI, Codex, Cursor — any MCP client
+
+# Or run commands directly
+sandbox.exec("cd my-ios-app && xcodebuild -scheme MyApp -sdk iphonesimulator build")
+sandbox.exec("cd my-ios-app && xcodebuild test -scheme MyApp -destination 'platform=iOS Simulator,name=iPhone 16'")
+
+# Get build artifacts
+sandbox.download("/Users/agent/my-ios-app/build/MyApp.ipa")
+
+# Sandbox persists — agent can come back tomorrow and iterate
+```
+
+---
+
+### The Demo (What You'd Actually Show)
+
+#### The Pitch (One-Liner)
+
+**"E2B for macOS — cloud sandboxes where AI agents build, test, and ship iOS apps."**
+
+Or more aspirationally:
+
+**"Any AI agent can now build an iPhone app. No Mac required."**
+
+#### Demo Script (5 minutes)
+
+**Setup:** Split screen. Left side: terminal / chat with AI agent. Right side: a dashboard showing the sandbox.
+
+**Beat 1: The Problem (30 seconds)**
+"Every AI coding agent — Claude Code, Codex, Gemini — can build Python apps, web apps, Rust apps in cloud sandboxes. But ask any of them to build an iOS app, and they hit a wall. You need macOS. You need Xcode. You need Apple hardware. Today, that means you need a $1,300 Mac sitting on a desk somewhere. We fix that."
+
+**Beat 2: Create a Sandbox (30 seconds)**
+```bash
+$ macbox create --template xcode-16 --name "demo-app"
+✓ Sandbox ready: demo-app.macbox.dev
+✓ macOS 15.2 + Xcode 16 + iOS 18 Simulator
+✓ MCP endpoint: https://demo-app.macbox.dev/mcp
+```
+"One command. Cloud Mac with Xcode. Ready in seconds." (Pre-warmed snapshot — the 24hr minimum means we keep these warm.)
+
+**Beat 3: AI Agent Builds an iOS App (2 minutes)**
+Connect Gemini CLI (or Claude Code) to the sandbox's MCP endpoint:
+```bash
+$ gemini --mcp https://demo-app.macbox.dev/mcp
+> "Create a SwiftUI workout tracker app with a timer, exercise list, and history view. Build and test it."
+```
+Show the agent:
+- Creating an Xcode project via MCP tools
+- Writing SwiftUI views
+- Building (show `xcodebuild` output streaming)
+- Hitting a build error → reading the error → fixing it → rebuilding successfully
+- Running tests on iOS Simulator
+- Generating a SwiftUI preview screenshot
+
+**Beat 4: The Result (1 minute)**
+- Show the built app running in iOS Simulator (streamed from the sandbox)
+- Show the test results (all passing)
+- Show the generated PR with clean diffs
+- "This agent has never touched a Mac. It didn't need to."
+
+**Beat 5: Why This Matters (1 minute)**
+"28 million Apple developers. The AI agent revolution is leaving them behind because every sandbox is Linux-only. We're the missing infrastructure layer. Any agent, any iOS app, no Mac required."
+
+#### Demo Risks & Mitigations
+
+| Risk | Mitigation |
+|---|---|
+| VM boot is slow during live demo | Pre-warm the sandbox before demo. The 24hr persistence means it's already running. |
+| Agent writes bad code, build fails repeatedly | Pre-test the exact prompt. Have a backup recording. The "agent fixes a build error" is actually a good demo moment if it recovers. |
+| Network issues | Have a local fallback demo running on a physical Mac with the same API layer in front of it. |
+| Xcode compilation is slow | Use a simple app (single view). Pre-cache Swift package dependencies. Show the build streaming so the audience sees progress. |
+
+---
+
+### The Concept — What This Product Actually Is
+
+#### For Different Audiences
+
+**For a developer:** "It's E2B / Sprites, but for macOS. Same API pattern — create a sandbox, run commands, connect your agent. But now your agent can use Xcode, build iOS apps, run Simulator tests, and ship to the App Store."
+
+**For a founder/investor:** "Every AI coding agent needs a sandbox to work in. For Linux, that's solved (E2B, Sprites, Codex). For Apple platforms — 28M developers, $100B+ app economy — there's nothing. We're building the infrastructure layer."
+
+**For a hackathon judge:** "We asked: what can't AI agents build today? The answer is iPhone apps — because every cloud sandbox is Linux. We built the first cloud macOS sandbox with Xcode, connected Gemini to it, and watched it build a working iOS app from a single prompt."
+
+#### Product Tiers (If This Became a Real Product)
+
+| Tier | Target | What They Get | Price |
+|---|---|---|---|
+| **Free** | Individual devs trying it out | 2 hours/month of sandbox time, 1 concurrent sandbox | $0 |
+| **Pro** | Indie developers, small teams | 40 hours/month, 3 concurrent, persistent environments | $49/mo |
+| **Team** | Startups, agencies | 200 hours/month, 10 concurrent, shared templates, team management | $199/mo |
+| **Enterprise** | Large iOS teams | Unlimited, dedicated hardware, SLA, SSO, custom Xcode versions, on-prem option | Custom |
+
+---
+
 ## Team
+
+*[To be filled in]*
+
+## License
+
+MIT
 
 *[To be filled in]*
 
