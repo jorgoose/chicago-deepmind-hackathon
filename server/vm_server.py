@@ -4,6 +4,7 @@ Cider VM Server — runs inside each Tart VM sandbox.
 Start with: uvicorn vm_server:app --host 0.0.0.0 --port 8000
 """
 import json
+import json as _json
 from typing import Optional
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import Response, StreamingResponse
@@ -106,8 +107,6 @@ async def app_detect(project_dir: str = "project"):
 
 @app.get("/app/run")
 async def app_run(project_dir: str = "project", scheme: Optional[str] = None):
-    import json as _json
-
     async def error_stream(msg: str):
         yield f'data: {_json.dumps({"type": "error", "data": msg})}\n\n'
 

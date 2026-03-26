@@ -1,7 +1,9 @@
 import asyncio
-import subprocess
+import base64
+import io
+import json
 import shutil
-import platform
+import tempfile
 from pathlib import Path
 from typing import Optional
 
@@ -131,7 +133,6 @@ def make_directory(path: str) -> dict:
 
 async def take_screenshot() -> Optional[bytes]:
     """Capture the booted iOS Simulator screen, return JPEG bytes."""
-    import tempfile
     with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as f:
         tmp_path = f.name
     result = await run_command(f"xcrun simctl io booted screenshot --type jpeg {tmp_path}")
@@ -148,8 +149,6 @@ async def stream_frames_ws(udid: str, quality: int = 70):
     from idb.grpc.idb_grpc import CompanionServiceStub
     from idb.grpc import idb_pb2
     from PIL import Image
-    import io
-    import base64
 
     sock_path = f"/tmp/idb/{udid}_companion.sock"
     loop = asyncio.get_running_loop()
@@ -180,7 +179,6 @@ async def boot_simulator(device_name: Optional[str] = None) -> dict:
     if result["exit_code"] != 0:
         return {"error": result["stderr"]}
 
-    import json
     devices = json.loads(result["stdout"])
     udid = None
     for runtime, device_list in devices.get("devices", {}).items():
@@ -298,7 +296,6 @@ async def detect_app(project_dir: str = "project") -> dict:
 
 async def build_and_run_app(udid: str, project_dir: str = "project", scheme: Optional[str] = None):
     """Async generator that streams xcodebuild output, then installs and launches the app."""
-    import json as _json
     info = await detect_app(project_dir)
     if "error" in info:
         yield {"type": "error", "data": info["error"]}
@@ -389,7 +386,6 @@ async def get_system_status() -> dict:
 
     booted_sims = []
     if results[2]["exit_code"] == 0:
-        import json
         try:
             data = json.loads(results[2]["stdout"])
             for runtime, devices in data.get("devices", {}).items():

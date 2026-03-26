@@ -1,5 +1,8 @@
 import asyncio
 import logging
+import time
+
+import httpx
 
 from config import TART_BASE_IMAGE, VM_BOOT_TIMEOUT
 
@@ -43,11 +46,6 @@ async def clone_and_boot(vm_name: str) -> str:
     logger.info(f"VM {vm_name} server ready at {ip}:8000")
 
     return ip
-
-
-async def create_vm(sandbox_id: str) -> str:
-    """Clone base image, boot VM, wait for server, return IP."""
-    return await clone_and_boot(f"cider-{sandbox_id}")
 
 
 async def stop_vm(vm_name: str):
@@ -98,7 +96,6 @@ async def get_vm_ip(vm_name: str) -> str | None:
 
 async def _wait_for_ip(vm_name: str, timeout: int = 120) -> str:
     """Poll tart ip until the VM has an IP address."""
-    import time
     start = time.monotonic()
     while time.monotonic() - start < timeout:
         ip = await get_vm_ip(vm_name)
@@ -110,9 +107,6 @@ async def _wait_for_ip(vm_name: str, timeout: int = 120) -> str:
 
 async def _wait_for_server(ip: str, timeout: int = 60):
     """Poll the sandbox server inside the VM until it responds."""
-    import time
-    import httpx
-
     start = time.monotonic()
     async with httpx.AsyncClient(timeout=5) as client:
         while time.monotonic() - start < timeout:
