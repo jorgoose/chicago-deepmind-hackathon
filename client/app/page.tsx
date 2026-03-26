@@ -6,6 +6,8 @@ const commands = [
   'cider create --repo "url"',
   "cider list",
   "cider [ID] --emulator ios",
+  "cider [ID] --ui",
+  "cider [ID] --run",
   "cider stop [ID]",
 ];
 
@@ -96,27 +98,6 @@ export default function Home() {
               <span className="body-copy text-right text-sm">{value}</span>
             </div>
           ))}
-        </div>
-      </section>
-
-      <section className="mt-24 grid gap-12 border-t border-[var(--border)] pt-14 md:grid-cols-3">
-        <div>
-          <div className="data-label">Provision</div>
-          <p className="body-copy mt-4 text-[1.05rem]">
-            `cider create` can start clean or initialize from a repo URL without any extra web flow.
-          </p>
-        </div>
-        <div>
-          <div className="data-label">Build</div>
-          <p className="body-copy mt-4 text-[1.05rem]">
-            Use the sandbox to compile Swift, boot the simulator, and iterate on the app from the CLI.
-          </p>
-        </div>
-        <div>
-          <div className="data-label">Cleanup</div>
-          <p className="body-copy mt-4 text-[1.05rem]">
-            Destroy the VM when you are finished and return to a clean base image for the next run.
-          </p>
         </div>
       </section>
 
