@@ -47,29 +47,6 @@ export interface ProjectResult {
   error?: string;
 }
 
-// --- Agent types ---
-
-export interface ChatMessage {
-  id: string;
-  role: "user" | "assistant" | "system";
-  content: string;
-  timestamp: number;
-}
-
-export interface ToolCall {
-  id: string;
-  name: string;
-  args: Record<string, unknown>;
-  result?: string;
-  status: "pending" | "running" | "success" | "error";
-  timestamp: number;
-}
-
-export interface AgentEvent {
-  type: "message" | "tool_call" | "tool_result" | "error" | "done";
-  data: ChatMessage | ToolCall | { message: string } | { finalMessage: string };
-}
-
 // --- WebSocket types ---
 
 export interface WsExecMessage {
