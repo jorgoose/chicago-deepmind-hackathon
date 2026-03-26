@@ -59,10 +59,6 @@ export class SimulatorUiController {
     return this.sessionInfo;
   }
 
-  async refreshSession(): Promise<SimulatorSessionInfo> {
-    return this.bootstrap();
-  }
-
   async captureScreenshotDataUrl(): Promise<string> {
     await this.ensureSession();
     const buffer = await this.client.screenshot(this.sandboxId);

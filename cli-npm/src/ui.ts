@@ -12,6 +12,7 @@ export const ui = {
   success: (s: string) => `${Green}${s}${Reset}`,
   error: (s: string) => `${Red}${s}${Reset}`,
   info: (s: string) => `${Cyan}${s}${Reset}`,
+  warn: (s: string) => `${Yellow}${s}${Reset}`,
   dim: (s: string) => `${Dim}${s}${Reset}`,
   bold: (s: string) => `${Bold}${s}${Reset}`,
 

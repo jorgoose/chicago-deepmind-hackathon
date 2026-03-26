@@ -178,10 +178,7 @@ async def sandbox_status(sandbox_id: str):
 @app.post("/sandboxes/{sandbox_id}/exec")
 async def sandbox_exec(sandbox_id: str, req: ExecRequest):
     ip = await _get_sandbox_ip(sandbox_id)
-    body = {"command": req.command}
-    if req.cwd:
-        body["cwd"] = req.cwd
-    return await proxy.proxy_post(ip, "/exec", body)
+    return await proxy.proxy_post(ip, "/exec", req.model_dump(exclude_none=True))
 
 
 @app.post("/sandboxes/{sandbox_id}/files/write")

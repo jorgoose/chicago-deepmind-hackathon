@@ -1,5 +1,9 @@
 #!/usr/bin/env node
 
+import { writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { exec } from "node:child_process";
 import { loadConfig, saveConfig } from "./config.js";
 import { ApiClient } from "./api.js";
 import { ui } from "./ui.js";
@@ -49,6 +53,12 @@ switch (cmd) {
     break;
 }
 
+function platformOpenCmd(target: string): string {
+  if (process.platform === "darwin") return `open "${target}"`;
+  if (process.platform === "win32") return `rundll32 url.dll,FileProtocolHandler "${target}"`;
+  return `xdg-open "${target}"`;
+}
+
 // --- Commands ---
 
 async function cmdCreate() {
@@ -59,9 +69,9 @@ async function cmdCreate() {
 
   console.log();
   if (repo) {
-    console.log(`  \x1b[33m⠋\x1b[0m Creating sandbox with repo ${ui.dim(repo)}...`);
+    console.log(`  ${ui.warn("⠋")} Creating sandbox with repo ${ui.dim(repo)}...`);
   } else {
-    console.log(`  \x1b[33m⠋\x1b[0m Creating sandbox...`);
+    console.log(`  ${ui.warn("⠋")} Creating sandbox...`);
   }
 
   try {
@@ -144,15 +154,9 @@ function cmdLogin() {
 
   console.log(`\n  Opening ${ui.brand(loginUrl)}...\n`);
 
-  import("node:child_process").then(({ exec }) => {
-    const cmd =
-      process.platform === "darwin" ? `open "${loginUrl}"` :
-      process.platform === "win32" ? `rundll32 url.dll,FileProtocolHandler "${loginUrl}"` :
-      `xdg-open "${loginUrl}"`;
-    exec(cmd, (err) => {
-      if (err) console.log(`  ${ui.dim("Could not open browser.")} Visit manually: ${loginUrl}\n`);
-      else ui.done("Browser opened. Complete login there, then return here.\n");
-    });
+  exec(platformOpenCmd(loginUrl), (err) => {
+    if (err) console.log(`  ${ui.dim("Could not open browser.")} Visit manually: ${loginUrl}\n`);
+    else ui.done("Browser opened. Complete login there, then return here.\n");
   });
 }
 
@@ -190,20 +194,11 @@ async function cmdSandboxAction(id: string) {
 
       try {
         const data = await client.screenshot(id);
-        const { writeFileSync } = await import("node:fs");
-        const { tmpdir } = await import("node:os");
-        const { join } = await import("node:path");
-        const { exec } = await import("node:child_process");
-
         const tmpPath = join(tmpdir(), `cider-screenshot-${Date.now()}.png`);
         writeFileSync(tmpPath, data);
         ui.done(`Screenshot saved to ${tmpPath}`);
 
-        const openCmd =
-          process.platform === "darwin" ? `open "${tmpPath}"` :
-          process.platform === "win32" ? `rundll32 url.dll,FileProtocolHandler "${tmpPath}"` :
-          `xdg-open "${tmpPath}"`;
-        exec(openCmd, (err) => {
+        exec(platformOpenCmd(tmpPath), (err) => {
           if (err) console.log(`  ${ui.dim("Could not open image viewer. Open the file manually.")}`);
         });
       } catch (err) {
