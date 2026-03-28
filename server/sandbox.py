@@ -1,7 +1,9 @@
 import asyncio
-import subprocess
+import base64
+import io
+import json
 import shutil
-import platform
+import tempfile
 from pathlib import Path
 from typing import Optional
 
@@ -59,7 +61,7 @@ async def stream_command(command: str, cwd: Optional[str] = None):
 
 
 async def _merge_streams(*streams):
-    """Merge multiple async generators."""
+    """Merge multiple async generators. asyncio has no built-in for this."""
     queue = asyncio.Queue()
     sentinel = object()
     remaining = len(streams)
@@ -131,15 +133,16 @@ def make_directory(path: str) -> dict:
 
 async def take_screenshot() -> Optional[bytes]:
     """Capture the booted iOS Simulator screen, return JPEG bytes."""
-    import tempfile
+    # simctl requires a file path destination; streaming to stdout is not supported.
     with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as f:
         tmp_path = f.name
-    result = await run_command(f"xcrun simctl io booted screenshot --type jpeg {tmp_path}")
-    if result["exit_code"] != 0:
-        return None
-    data = Path(tmp_path).read_bytes()
-    Path(tmp_path).unlink(missing_ok=True)
-    return data
+    try:
+        result = await run_command(f"xcrun simctl io booted screenshot --type jpeg {tmp_path}")
+        if result["exit_code"] != 0:
+            return None
+        return Path(tmp_path).read_bytes()
+    finally:
+        Path(tmp_path).unlink(missing_ok=True)
 
 
 async def stream_frames_ws(udid: str, quality: int = 70):
@@ -148,8 +151,6 @@ async def stream_frames_ws(udid: str, quality: int = 70):
     from idb.grpc.idb_grpc import CompanionServiceStub
     from idb.grpc import idb_pb2
     from PIL import Image
-    import io
-    import base64
 
     sock_path = f"/tmp/idb/{udid}_companion.sock"
     loop = asyncio.get_running_loop()
@@ -180,7 +181,6 @@ async def boot_simulator(device_name: Optional[str] = None) -> dict:
     if result["exit_code"] != 0:
         return {"error": result["stderr"]}
 
-    import json
     devices = json.loads(result["stdout"])
     udid = None
     for runtime, device_list in devices.get("devices", {}).items():
@@ -214,7 +214,6 @@ def create_project(name: str) -> dict:
     if project_dir.exists():
         return {"error": f"Project '{name}' already exists", "path": str(project_dir)}
 
-    PROJECT_ROOT.mkdir(parents=True, exist_ok=True)
     shutil.copytree(str(TEMPLATE_PROJECT), str(project_dir))
 
     # Rename files and references from template name to project name
@@ -257,13 +256,15 @@ async def detect_app(project_dir: str = "project") -> dict:
     """Find the Xcode project/workspace and available schemes in project_dir."""
     full_dir = str(PROJECT_ROOT / project_dir)
     # Find workspace first, then project
-    ws_result = await run_command(
-        "find . -maxdepth 3 -name '*.xcworkspace' -not -path '*/.git/*' -not -path '*/project.xcworkspace' | head -1",
-        cwd=full_dir,
-    )
-    proj_result = await run_command(
-        "find . -maxdepth 3 -name '*.xcodeproj' -not -path '*/.git/*' | head -1",
-        cwd=full_dir,
+    ws_result, proj_result = await asyncio.gather(
+        run_command(
+            "find . -maxdepth 3 -name '*.xcworkspace' -not -path '*/.git/*' -not -path '*/project.xcworkspace' | head -1",
+            cwd=full_dir,
+        ),
+        run_command(
+            "find . -maxdepth 3 -name '*.xcodeproj' -not -path '*/.git/*' | head -1",
+            cwd=full_dir,
+        ),
     )
     workspace = ws_result["stdout"].strip()
     project = proj_result["stdout"].strip()
@@ -298,7 +299,6 @@ async def detect_app(project_dir: str = "project") -> dict:
 
 async def build_and_run_app(udid: str, project_dir: str = "project", scheme: Optional[str] = None):
     """Async generator that streams xcodebuild output, then installs and launches the app."""
-    import json as _json
     info = await detect_app(project_dir)
     if "error" in info:
         yield {"type": "error", "data": info["error"]}
@@ -389,7 +389,6 @@ async def get_system_status() -> dict:
 
     booted_sims = []
     if results[2]["exit_code"] == 0:
-        import json
         try:
             data = json.loads(results[2]["stdout"])
             for runtime, devices in data.get("devices", {}).items():

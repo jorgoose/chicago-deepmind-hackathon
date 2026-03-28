@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 
-import readline from "node:readline";
+import { writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { exec } from "node:child_process";
 import { loadConfig, saveConfig } from "./config.js";
 import { ApiClient } from "./api.js";
 import { ui } from "./ui.js";
-import { runAgent } from "./agent.js";
 import { launchSimulatorUi } from "./simulator-ui-launcher.js";
 
 const args = process.argv.slice(2);
@@ -33,10 +35,6 @@ switch (cmd) {
   case "login":
     cmdLogin();
     break;
-  case "google":
-    if (args[1] === "login") await cmdGoogleLogin();
-    else printUsage();
-    break;
   case "status":
     await cmdStatus();
     break;
@@ -55,6 +53,12 @@ switch (cmd) {
     break;
 }
 
+function platformOpenCmd(target: string): string {
+  if (process.platform === "darwin") return `open "${target}"`;
+  if (process.platform === "win32") return `rundll32 url.dll,FileProtocolHandler "${target}"`;
+  return `xdg-open "${target}"`;
+}
+
 // --- Commands ---
 
 async function cmdCreate() {
@@ -65,9 +69,9 @@ async function cmdCreate() {
 
   console.log();
   if (repo) {
-    console.log(`  \x1b[33m⠋\x1b[0m Creating sandbox with repo ${ui.dim(repo)}...`);
+    console.log(`  ${ui.warn("⠋")} Creating sandbox with repo ${ui.dim(repo)}...`);
   } else {
-    console.log(`  \x1b[33m⠋\x1b[0m Creating sandbox...`);
+    console.log(`  ${ui.warn("⠋")} Creating sandbox...`);
   }
 
   try {
@@ -85,7 +89,7 @@ async function cmdCreate() {
     console.log(`  ${ui.dim("Next steps:")}`);
     console.log(`  ${ui.dim(`  cider ${sandbox.id} --emulator ios    # boot iOS simulator`)}`);
     console.log(`  ${ui.dim(`  cider ${sandbox.id} --ss              # take a screenshot`)}`);
-    console.log(`  ${ui.dim(`  cider ${sandbox.id} --google          # start Gemini agent`)}`);
+    console.log(`  ${ui.dim(`  cider ${sandbox.id} --ui              # launch simulator UI`)}`);
     console.log(`  ${ui.dim(`  cider stop ${sandbox.id}              # stop and delete`)}`);
     console.log();
   } catch (err) {
@@ -150,51 +154,10 @@ function cmdLogin() {
 
   console.log(`\n  Opening ${ui.brand(loginUrl)}...\n`);
 
-  import("node:child_process").then(({ exec }) => {
-    const cmd =
-      process.platform === "darwin" ? `open "${loginUrl}"` :
-      process.platform === "win32" ? `rundll32 url.dll,FileProtocolHandler "${loginUrl}"` :
-      `xdg-open "${loginUrl}"`;
-    exec(cmd, (err) => {
-      if (err) console.log(`  ${ui.dim("Could not open browser.")} Visit manually: ${loginUrl}\n`);
-      else ui.done("Browser opened. Complete login there, then return here.\n");
-    });
+  exec(platformOpenCmd(loginUrl), (err) => {
+    if (err) console.log(`  ${ui.dim("Could not open browser.")} Visit manually: ${loginUrl}\n`);
+    else ui.done("Browser opened. Complete login there, then return here.\n");
   });
-}
-
-async function cmdGoogleLogin() {
-  console.log();
-  console.log(`  \x1b[38;5;208m\x1b[1mGemini API Authentication\x1b[0m\n`);
-  console.log(`  ${ui.dim("Get your API key at: https://aistudio.google.com/apikey")}\n`);
-
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-  const key = await new Promise<string>((resolve) => {
-    rl.question("  Enter your Gemini API key: ", (answer) => {
-      rl.close();
-      resolve(answer.trim());
-    });
-  });
-
-  if (!key) ui.fatal("No key provided.");
-
-  process.stderr.write("  Validating...");
-
-  try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models?key=${key}`
-    );
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-    cfg.geminiApiKey = key;
-    saveConfig(cfg);
-
-    process.stderr.write("\x1b[2K\r");
-    ui.done("API key saved");
-    console.log(`  ${ui.dim("Stored in ~/.cider/config.json")}\n`);
-  } catch (err) {
-    process.stderr.write("\x1b[2K\r");
-    ui.fatal(`Invalid API key: ${err instanceof Error ? err.message : err}`);
-  }
 }
 
 async function cmdStatus() {
@@ -212,16 +175,13 @@ async function cmdStatus() {
     return;
   }
 
-  if (cfg.geminiApiKey) ui.kv("Gemini", ui.success("configured"));
-  else ui.kv("Gemini", ui.dim("not configured — run: cider google login"));
-
   if (cfg.activeSandbox) ui.kv("Active", ui.brand(cfg.activeSandbox));
   console.log();
 }
 
 async function cmdSandboxAction(id: string) {
   if (args.length < 2) {
-    console.log(`\n  ${ui.dim("Usage: cider <ID> --emulator ios | --ss | --google | --ui | --run")}\n`);
+    console.log(`\n  ${ui.dim("Usage: cider <ID> --emulator ios | --ss | --ui | --run")}\n`);
     return;
   }
 
@@ -234,20 +194,11 @@ async function cmdSandboxAction(id: string) {
 
       try {
         const data = await client.screenshot(id);
-        const { writeFileSync } = await import("node:fs");
-        const { tmpdir } = await import("node:os");
-        const { join } = await import("node:path");
-        const { exec } = await import("node:child_process");
-
         const tmpPath = join(tmpdir(), `cider-screenshot-${Date.now()}.png`);
         writeFileSync(tmpPath, data);
         ui.done(`Screenshot saved to ${tmpPath}`);
 
-        const openCmd =
-          process.platform === "darwin" ? `open "${tmpPath}"` :
-          process.platform === "win32" ? `rundll32 url.dll,FileProtocolHandler "${tmpPath}"` :
-          `xdg-open "${tmpPath}"`;
-        exec(openCmd, (err) => {
+        exec(platformOpenCmd(tmpPath), (err) => {
           if (err) console.log(`  ${ui.dim("Could not open image viewer. Open the file manually.")}`);
         });
       } catch (err) {
@@ -273,39 +224,6 @@ async function cmdSandboxAction(id: string) {
       }
       console.log();
       break;
-    }
-
-    case "--google": {
-      if (!cfg.geminiApiKey) ui.fatal("Gemini not configured. Run: cider google login");
-
-      ui.banner();
-      console.log(`  ${ui.dim("Sandbox:")} ${ui.brand(id)}`);
-      console.log(`  ${ui.dim("Type your prompt. The agent will build your iOS app.")}`);
-      console.log(`  ${ui.dim("Type 'exit' to quit.")}\n`);
-
-      const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-
-      const prompt = (query: string) =>
-        new Promise<string>((resolve) => rl.question(query, resolve));
-
-      while (true) {
-        const input = await prompt(`  \x1b[38;5;208m> \x1b[0m`);
-        const trimmed = input.trim();
-
-        if (!trimmed) continue;
-        if (trimmed === "exit" || trimmed === "quit") {
-          console.log();
-          rl.close();
-          return;
-        }
-
-        try {
-          await runAgent(cfg.geminiApiKey!, client, id, trimmed);
-          console.log(`\n  ${ui.success("✓ Agent finished")}\n`);
-        } catch (err) {
-          console.log(`\n  ${ui.error("✗")} ${err instanceof Error ? err.message : err}\n`);
-        }
-      }
     }
 
     case "--ui": {
@@ -345,7 +263,7 @@ async function cmdSandboxAction(id: string) {
 
     default:
       console.log(`  Unknown flag: ${flag}`);
-      console.log(`  ${ui.dim("Usage: cider <ID> --emulator ios | --ss | --google | --ui | --run")}\n`);
+      console.log(`  ${ui.dim("Usage: cider <ID> --emulator ios | --ss | --ui | --run")}\n`);
   }
 }
 
@@ -357,10 +275,8 @@ function printUsage() {
   console.log("    cider list                         List your sandboxes");
   console.log("    cider status                       Check host server connection");
   console.log("    cider login                        Open dashboard login in browser");
-  console.log("    cider google login                 Authenticate with Gemini API key");
   console.log("    cider <ID> --emulator ios           Boot iOS simulator in sandbox");
   console.log("    cider <ID> --ss                     Take a screenshot of the simulator");
-  console.log("    cider <ID> --google                 Start Gemini agent session");
   console.log("    cider <ID> --ui                     Launch simulator control UI");
   console.log("    cider <ID> --run                    Build and run app in simulator");
   console.log("    cider stop <ID>                    Stop and delete a sandbox");

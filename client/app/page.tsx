@@ -6,6 +6,8 @@ const commands = [
   'cider create --repo "url"',
   "cider list",
   "cider [ID] --emulator ios",
+  "cider [ID] --ui",
+  "cider [ID] --run",
   "cider stop [ID]",
 ];
 
@@ -40,22 +42,6 @@ export default function Home() {
           </p>
           <div className="mt-5 inline-flex items-center gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5">
             <span className="mono-inline text-base">npm i -g cider-cli</span>
-          </div>
-
-          {/* "Sponsored" badge */}
-          <div className="mt-6">
-            <div className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface)] px-5 py-2.5 opacity-80 hover:opacity-100 transition-opacity">
-              <svg viewBox="0 0 24 24" width="20" height="20" fill="none">
-                <path d="M12 2L8.5 8.5 2 12l6.5 3.5L12 22l3.5-6.5L22 12l-6.5-3.5z" fill="#4285F4"/>
-                <path d="M12 2L8.5 8.5 2 12l6.5 3.5L12 22" fill="#34A853"/>
-                <path d="M12 2l3.5 6.5L22 12l-6.5 3.5L12 22" fill="#FBBC04"/>
-                <path d="M12 7l-2.5 5L12 17l2.5-5z" fill="#EA4335"/>
-              </svg>
-              <span className="text-sm font-medium tracking-wide">
-                <span style={{ fontSize: '6px', verticalAlign: 'super' }}>not </span>
-                Sponsored by Gemini
-              </span>
-            </div>
           </div>
 
           <div className="mt-12 max-w-xl border-t border-[var(--border)] pt-6">
@@ -112,27 +98,6 @@ export default function Home() {
               <span className="body-copy text-right text-sm">{value}</span>
             </div>
           ))}
-        </div>
-      </section>
-
-      <section className="mt-24 grid gap-12 border-t border-[var(--border)] pt-14 md:grid-cols-3">
-        <div>
-          <div className="data-label">Provision</div>
-          <p className="body-copy mt-4 text-[1.05rem]">
-            `cider create` can start clean or initialize from a repo URL without any extra web flow.
-          </p>
-        </div>
-        <div>
-          <div className="data-label">Build</div>
-          <p className="body-copy mt-4 text-[1.05rem]">
-            Use the sandbox to compile Swift, boot the simulator, and iterate on the app from the CLI.
-          </p>
-        </div>
-        <div>
-          <div className="data-label">Cleanup</div>
-          <p className="body-copy mt-4 text-[1.05rem]">
-            Destroy the VM when you are finished and return to a clean base image for the next run.
-          </p>
         </div>
       </section>
 

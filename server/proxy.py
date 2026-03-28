@@ -1,6 +1,6 @@
 import asyncio
 import httpx
-from fastapi import Request
+import websockets as _ws
 from fastapi.responses import Response, JSONResponse, StreamingResponse
 
 # Shared client with generous timeout for xcodebuild etc.
@@ -37,19 +37,16 @@ async def proxy_post(ip: str, path: str, body: dict) -> JSONResponse:
 async def proxy_stream_get(ip: str, path: str, media_type: str):
     """Stream a GET response from a sandbox VM (e.g. SSE app/run output)."""
     async def generate():
-        async with httpx.AsyncClient(timeout=httpx.Timeout(None)) as client:
-            async with client.stream("GET", f"http://{ip}:8000{path}") as response:
-                if response.status_code >= 400:
-                    body = await response.aread()
-                    error_text = body.decode(errors="replace").replace('"', '\\"')
-                    yield f'data: {{"type":"error","data":"VM error {response.status_code}: {error_text}"}}\n\n'.encode()
-                    return
-                async for chunk in response.aiter_bytes(chunk_size=16384):
-                    yield chunk
+        client = _get_client()
+        async with client.stream("GET", f"http://{ip}:8000{path}", timeout=None) as response:
+            if response.status_code >= 400:
+                body = await response.aread()
+                error_text = body.decode(errors="replace").replace('"', '\\"')
+                yield f'data: {{"type":"error","data":"VM error {response.status_code}: {error_text}"}}\n\n'.encode()
+                return
+            async for chunk in response.aiter_bytes(chunk_size=16384):
+                yield chunk
     return StreamingResponse(generate(), media_type=media_type)
-
-
-import websockets as _ws
 
 
 async def proxy_websocket(client_ws, ip: str, path: str):

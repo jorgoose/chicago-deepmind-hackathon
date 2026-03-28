@@ -38,6 +38,9 @@ async def _create_one() -> dict:
 async def _replenish():
     """Fill the pool up to _target_size. Runs as a background task."""
     global _filling
+    # _filling guards against concurrent replenish tasks. Checking qsize() alone
+    # is insufficient because two coroutines can both pass the qsize check before
+    # either sets _filling=True.
     if _filling:
         return
     _filling = True

@@ -115,10 +115,10 @@ async def create_sandbox(req: CreateSandboxRequest):
 
         # If repo URL provided, clone it inside the VM
         if req.repo:
-            clone_resp = await proxy.proxy_post(
+            clone_result = await proxy.proxy_post(
                 ip, "/exec", {"command": f"git clone {req.repo} project"}
             )
-            logger.info(f"Cloned repo {req.repo} into sandbox {sandbox_id}")
+            logger.info(f"Cloned repo {req.repo} into sandbox {sandbox_id}: {clone_result}")
 
         sandbox = db.get_sandbox(sandbox_id)
         return sandbox
@@ -178,10 +178,7 @@ async def sandbox_status(sandbox_id: str):
 @app.post("/sandboxes/{sandbox_id}/exec")
 async def sandbox_exec(sandbox_id: str, req: ExecRequest):
     ip = await _get_sandbox_ip(sandbox_id)
-    body = {"command": req.command}
-    if req.cwd:
-        body["cwd"] = req.cwd
-    return await proxy.proxy_post(ip, "/exec", body)
+    return await proxy.proxy_post(ip, "/exec", req.model_dump(exclude_none=True))
 
 
 @app.post("/sandboxes/{sandbox_id}/files/write")

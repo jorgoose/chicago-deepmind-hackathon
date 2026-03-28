@@ -20,6 +20,7 @@ interface DevicePoint {
 
 class CiderSimulatorApp {
   private session: SimulatorSessionInfo | null = null;
+  private ws: WebSocket | null = null;
   private pointerStart: DevicePoint | null = null;
   private pendingText = "";
   private textFlushTimer: number | null = null;
@@ -115,7 +116,9 @@ class CiderSimulatorApp {
   }
 
   private startVideoStream(wsUrl: string) {
+    this.ws?.close();
     const ws = new WebSocket(wsUrl);
+    this.ws = ws;
     ws.onmessage = (event) => {
       try {
         const msg = JSON.parse(event.data as string) as { data: string; format: string };

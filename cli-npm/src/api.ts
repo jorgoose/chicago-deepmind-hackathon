@@ -41,14 +41,6 @@ export interface ProjectResult {
   error?: string;
 }
 
-export interface AppInfo {
-  project_dir: string;
-  workspace: string | null;
-  project: string | null;
-  schemes: string[];
-  error?: string;
-}
-
 export class ApiClient {
   constructor(private baseUrl: string) {}
 
@@ -106,10 +98,6 @@ export class ApiClient {
     const res = await fetch(`${this.baseUrl}/sandboxes/${id}/screenshot`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return Buffer.from(await res.arrayBuffer());
-  }
-
-  async detectApp(id: string, projectDir = "project"): Promise<AppInfo> {
-    return this.get(`/sandboxes/${id}/app/detect?project_dir=${encodeURIComponent(projectDir)}`);
   }
 
   async *streamAppRun(id: string, projectDir = "project", scheme?: string): AsyncGenerator<{type: string; data?: string; code?: number}> {
